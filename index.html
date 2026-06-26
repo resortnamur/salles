@@ -1,0 +1,3580 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Plan de salle</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    #sidebar {
+      width: 320px;
+      padding: 12px;
+      border-right: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 14px;
+      overflow-y: auto;
+    }
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    #canvasContainer {
+      flex: 1;
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+      background: #eee;
+      overflow: auto;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    canvas {
+      border: 1px solid #999;
+      background: #fff;
+      max-width: 100%;
+      max-height: 100%;
+      transform-origin: top left;
+    }
+    fieldset {
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+    }
+    input[type="number"],
+    input[type="text"],
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    select,
+    input[type="file"],
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 6px;
+    }
+    button {
+      margin: 2px 0;
+      width: 100%;
+    }
+    .small-buttons {
+      display: flex;
+      gap: 4px;
+      margin: 4px 0;
+    }
+    .small-buttons button {
+      flex: 1;
+      width: auto;
+    }
+    #status {
+      font-size: 12px;
+      color: #555;
+      margin-top: 8px;
+      min-height: 1.2em;
+    }
+    #zoomRange {
+      width: 100%;
+    }
+    #roomNav {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      display: flex;
+      gap: 4px;
+      opacity: 0.7;
+      z-index: 1000;
+    }
+    #roomNav button {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid #888;
+      background: #f5f5f5;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+    #roomNav button:hover {
+      background: #e0e0e0;
+    }
+    #deleteTemplate {
+      color: #b00000;
+    }
+    #toc button {
+      width: auto;
+      padding: 2px 8px;
+      margin: 2px;
+      font-size: 12px;
+    }
+    .param-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .param-row span {
+      flex: 1;
+    }
+    .param-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .param-extra-select {
+      margin-left: 8px;
+    }
+    .param-extra-remove {
+      margin-left: 8px;
+      width: auto;
+      padding: 0 6px;
+      font-size: 11px;
+    }
+
+    /* Page de mode d'emploi : utiliser toute la largeur, masquer le canevas */
+    body.manual-page #sidebar {
+      width: 100%;
+    }
+
+    body.manual-page #canvasContainer {
+      display: none;
+    }
+
+    /* Mise en page du mode d'emploi détaillé sur deux colonnes */
+    #manualPanel fieldset {
+      column-count: 2;
+      column-gap: 32px;
+    }
+
+    /* Éviter les coupures moches dans certains blocs */
+    #manualPanel h4,
+    #manualPanel table,
+    #manualPanel p,
+    #manualPanel ul {
+      break-inside: avoid;
+    }
+
+    #manualPanel table {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <!-- PANNEAU ACCUEIL + OUTILS -->
+  <div id="sidebar">
+    <!-- PAGE 0 : accueil + navigation + export/import -->
+    <div id="homePanel">
+      <fieldset id="homeInstructions">
+        <legend>Mode d'emploi (page d’accueil)</legend>
+        <p>
+          Utilisez la table des matières ci-dessous pour accéder rapidement à une salle.
+          La page 0 affiche la légende des objets, les pages 1 à 17 correspondent aux salles,
+          et la dernière page (18) contient le mode d’emploi détaillé.
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Aller à une page</legend>
+        <div id="toc"></div><br>
+        <button id="exportLegendBtn">Exporter la légende en PNG</button><br><br>
+        <button id="exportTemplatesBtn">Exporter les dispositions</button>
+        <button id="importTemplatesBtn">Importer des dispositions</button>
+        <input type="file" id="importTemplatesInput" accept="application/json" style="display:none;">
+        <input type="file" id="importRoomInput" accept="application/json" style="display:none;">
+      </fieldset>
+    </div>
+
+    <!-- PAGE MANUEL DÉTAILLÉ (dernière page) -->
+    <div id="manualPanel" style="display:none;">
+      <fieldset>
+<legend>Mode d'emploi</legend>
+
+<h4>1. À quoi sert cet outil ?</h4>
+<p>
+Cet outil permet de préparer l’aménagement des salles pour vos événements.
+Vous pouvez positionner du mobilier, créer des configurations types (dispositions),
+renseigner les informations d’un événement et exporter un document prêt à imprimer.
+Aucune connaissance technique n’est nécessaire.
+</p>
+
+<h4>2. Organisation des pages</h4>
+<ul>
+  <li><strong>Page 0</strong> : légende des objets, accès rapide aux salles, export/import des dispositions.</li>
+  <li><strong>Pages 1 à 17</strong> : plans des différentes salles.</li>
+  <li><strong>Page 18</strong> : ce mode d’emploi.</li>
+</ul>
+
+<p><strong>Navigation :</strong></p>
+<ul>
+  <li>Boutons ◀ ▶ en bas à droite.</li>
+  <li>Flèches gauche / droite du clavier.</li>
+  <li>Table des matières sur la page 0.</li>
+</ul>
+
+<h4>3. Créer un aménagement (Mode objet)</h4>
+
+<p><strong>Étape 1 : Activer le Mode objet</strong><br>
+Cliquez sur <strong>Mode objet</strong> dans le panneau de gauche.
+</p>
+
+<p><strong>Étape 2 : Placer un objet</strong></p>
+<ul>
+  <li>Choisissez un type d’objet (chaise, table, écran, pupitre, etc.).</li>
+  <li>Cliquez dans la salle pour le placer.</li>
+</ul>
+
+<p><strong>Étape 3 : Déplacer un objet</strong></p>
+<ul>
+  <li>Cliquez sur l’objet pour le sélectionner.</li>
+  <li>Maintenez le clic et glissez-le à l’endroit souhaité.</li>
+</ul>
+
+<p><strong>Étape 4 : Rotation</strong></p>
+<ul>
+  <li>Sélectionnez l’objet.</li>
+  <li>Utilisez les boutons de rotation pour l’orienter.</li>
+</ul>
+
+<p><strong>Étape 5 : Supprimer un objet</strong></p>
+<ul>
+  <li>Sélectionnez l’objet.</li>
+  <li>Appuyez sur la touche <strong>Suppr</strong>.</li>
+</ul>
+
+<p><strong>Sélection multiple :</strong></p>
+<ul>
+  <li>Maintenez <strong>Ctrl</strong> en cliquant sur plusieurs objets.</li>
+  <li>Vous pouvez ensuite les déplacer ensemble.</li>
+</ul>
+
+<p><strong>Annuler une action :</strong><br>
+Utilisez <strong>Ctrl + Z</strong>.
+</p>
+
+<h4>4. Utiliser une disposition type (Mode dispo)</h4>
+
+<p>
+Une <strong>disposition</strong> permet d’enregistrer un aménagement complet
+pour le replacer rapidement (ex : « Théâtre », « U », « Cocktail », etc.).
+</p>
+
+<p><strong>Enregistrer une disposition :</strong></p>
+<ul>
+  <li>Créez votre aménagement (objets placés comme souhaité).</li>
+  <li>Donnez-lui un nom.</li>
+  <li>Cliquez sur <strong>Enregistrer la disposition actuelle</strong>.</li>
+</ul>
+
+<p><strong>Placer une disposition :</strong></p>
+<ul>
+  <li>Cliquez sur <strong>Mode dispo</strong>.</li>
+  <li>Sélectionnez une disposition dans la liste.</li>
+  <li>Cliquez dans la salle pour la placer.</li>
+</ul>
+
+<p><strong>Déplacer une disposition :</strong></p>
+<ul>
+  <li>En mode dispo, cliquez sur un élément de la disposition pour la sélectionner.</li>
+  <li>Glissez pour déplacer tout l’ensemble.</li>
+</ul>
+
+<p><strong>Tourner une disposition :</strong></p>
+<ul>
+  <li>Utilisez les boutons « Dispo sélectionnée » pour tourner l’ensemble.</li>
+</ul>
+
+<p><strong>Supprimer une disposition :</strong></p>
+<ul>
+  <li>Sélectionnez-la en cliquant sur un de ses éléments.</li>
+  <li>Appuyez sur <strong>Suppr</strong> pour supprimer toute la disposition.</li>
+</ul>
+
+<p><strong>Annuler (dispositions) :</strong><br>
+Utilisez <strong>Ctrl + Z</strong> pour annuler un placement, un déplacement, une rotation ou une suppression.
+</p>
+
+<h4>5. IMPORTANT : exporter vos dispositions (page 0)</h4>
+
+<p>
+Les dispositions que vous enregistrez sont mémorisées sur <strong>cet ordinateur</strong>.
+Il est <strong>très important</strong> de les exporter régulièrement depuis la <strong>page 0</strong>
+(bouton <strong>Exporter les dispositions</strong>).
+</p>
+
+<p><strong>Pourquoi c’est important ?</strong></p>
+<ul>
+  <li><strong>Partager</strong> : vous pouvez transmettre vos dispositions à d’autres utilisateurs
+      (ils pourront les importer sur leur ordinateur).</li>
+  <li><strong>Sécuriser</strong> : en cas de perte de mémoire sur l’ordinateur (nettoyage, changement de poste,
+      navigateur réinitialisé, etc.), vous pourrez <strong>réimporter</strong> vos dispositions et les récupérer.</li>
+</ul>
+
+<p><strong>Conseil :</strong> gardez le fichier exporté dans un endroit sûr (dossier partagé, clé USB, etc.).</p>
+
+<h4>6. Zoom</h4>
+<ul>
+  <li>Le curseur de zoom permet d’agrandir ou réduire l’affichage de la salle.</li>
+  <li>Le zoom ne change pas les dimensions réelles : il sert uniquement au confort de lecture.</li>
+</ul>
+
+<h4>7. Paramètres et informations d’événement</h4>
+
+<p><strong>Paramètres techniques :</strong></p>
+<ul>
+  <li>Indiquez la présence d’un écran, micro, flipchart, multiprise, up-lighters, etc.</li>
+  <li>Précisez si les parois sont ouvertes ou fermées (si applicable).</li>
+  <li>Vous pouvez ajouter d’autres éléments via « Autres éléments ».</li>
+</ul>
+
+<p><strong>Informations événement :</strong></p>
+<ul>
+  <li>Nom du groupe ou de l’événement.</li>
+  <li>Date.</li>
+  <li>Heure de début et de fin.</li>
+  <li>Minutes de battement (facultatif).</li>
+  <li>Date/heure à laquelle tout doit être prêt.</li>
+  <li>Remarques complémentaires.</li>
+</ul>
+
+<h4>8. Export (pour impression)</h4>
+
+<ul>
+  <li><strong>Exporter en PNG</strong> : exporte uniquement le plan de la salle (image + objets).</li>
+  <li><strong>Exporter la légende en PNG</strong> (page 0) : exporte la légende des objets.</li>
+  <li><strong>Exporter paramètres + salle en PNG</strong> :
+      génère un document A4 horizontal prêt à imprimer, avec le plan à gauche
+      et les informations (paramètres + événement + remarques) à droite.</li>
+</ul>
+
+<h4>9. Conseils d’utilisation</h4>
+<ul>
+  <li>Commencez par placer une disposition type si elle existe, puis ajustez en mode objet.</li>
+  <li>Renseignez les informations d’événement avant export.</li>
+  <li>Utilisez Ctrl + Z en cas d’erreur.</li>
+  <li><strong>Pensez à exporter vos dispositions</strong> (page 0) pour pouvoir les partager et les récupérer si besoin.</li>
+</ul>
+
+<h4>10. Utiliser les pages 13, 14 et 15</h4>
+
+<p>
+Les pages <strong>13, 14, 15, 16 et 17</strong> permettent de charger
+le <strong>plan de la salle de votre choix</strong> (image).
+</p>
+
+<p><strong>Comment faire :</strong></p>
+<ul>
+  <li>Allez sur la page 13, 14, 15, 16 ou 17.</li>
+  <li>Dans la section <strong>Salle</strong>, cliquez sur <strong>Image de la salle</strong> et sélectionnez votre fichier.</li>
+  <li>Renseignez ensuite la <strong>largeur réelle (en mètres)</strong>.</li>
+  <li>Cliquez sur <strong>Appliquer la largeur</strong>.</li>
+</ul>
+
+<p><strong>IMPORTANT : bien renseigner la largeur (en mètres)</strong></p>
+<p>
+La valeur “Largeur réelle” doit correspondre à la <strong>largeur totale représentée par l’image</strong>.
+L’outil met à l’échelle <strong>toute l’image</strong> que vous avez chargée.
+</p>
+
+<ul>
+  <li>Si votre image contient des <strong>bords perdus / marges / zones blanches</strong> autour du plan,
+      vous devez <strong>les inclure</strong> dans la largeur (puisqu’ils font partie de l’image utilisée pour l’échelle).</li>
+  <li>Si vous ne voulez pas inclure ces marges, il faut <strong>recadrer l’image</strong> avant de la charger,
+      puis renseigner la largeur correspondant à l’image recadrée.</li>
+</ul>
+
+<p>
+Une largeur incorrecte faussera la taille apparente des objets (tables, chaises, etc.).
+Vérifiez donc cette valeur avant de commencer l’aménagement.
+</p>      </fieldset>
+    </div>
+
+    <!-- PANNEAU EDITEUR (pages 1..15) -->
+    <div id="editorPanels" style="display:none;">
+
+      <!-- Choix du type d'affichage -->
+      <fieldset>
+        <legend>Affichage du panneau</legend>
+        <div class="small-buttons">
+          <button type="button" id="panelLayoutBtn">Aménagement de la salle</button>
+          <button type="button" id="panelParamsBtn">Paramètres divers</button>
+        </div>
+      </fieldset>
+
+      <!-- Sous-panneau : aménagement de la salle (affichage actuel) -->
+      <div id="layoutPanel">
+
+        <!-- Mode objet / dispo -->
+        <fieldset>
+          <legend>Mode d'édition</legend>
+          <div class="small-buttons">
+            <button type="button" id="modeObjectBtn">Mode objet</button>
+            <button type="button" id="modeDispoBtn">Mode dispo</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Salle</legend>
+          <div id="roomWidthControls">
+            <label>Largeur réelle (m) :
+              <input type="number" id="roomWidthMeters" step="0.01" value="12.75">
+            </label>
+            <button id="applyRoomSize">Appliquer la largeur</button>
+          </div>
+          <button id="clearRoomObjects">Vider la salle (supprimer tous les objets)</button>
+          <label>Image de la salle (fichier local, mémorisée) :
+            <input type="file" id="roomImageInput" accept="image/*">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Zoom</legend>
+          <input type="range" id="zoomRange" min="50" max="300" value="100">
+          <div id="zoomLabel">100%</div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Objets</legend>
+          <label>Type d'objet :
+            <select id="objectType">
+ <option value="blocPodium">Bloc de podium 2m x 1m</option>
+             <option value="chair">Chaise 0.45m x 0.45m</option>
+              <option value="deskHotesses">Desk hôtesses 0.9m x 0.5m</option>
+              <option value="deskLumineux">Desk lumineux 1.2m x 0.6m</option>
+              <option value="ecranMobile">Ecran mobile 1.47m x 0.8m</option>
+              <option value="fauteuilCasinoClub">Fauteuil casino club 1.1m x 0.9m</option>
+              <option value="fauteuilCouloir">Fauteuil couloir 1.5m x 0.85m</option>
+              <option value="flipchart">Flipchart Ø0.6m</option>
+              <option value="initBlackjack">Initiation blackjack 2.5m x 1.5m</option>
+              <option value="initRoulette">Initiation roulette 2.5m x 1.5m</option>
+              <option value="mangeDeboutBlanc">Mange-debout blanc Ø0.8m</option>
+              <option value="mangeDeboutCarre">Mange-debout carré 0.7m x 0.7m</option>
+              <option value="mangeDeboutGris">Mange-debout gris Ø0.85m</option>
+              <option value="petitFauteuil">Petit fauteuil 0.7m x 0.65m</option>
+<option value="podium">Podium 6m x 2m</option>
+<option value="pupitre">Pupitre 0.62m x 0.4m</option>
+              <option value="sepGrise">Séparation grise 0.8m x 0.05m</option>
+              <option value="sepPkrstrs">Séparation pkrstrs 1m x 0.05m</option>
+              <option value="sepPub">Séparation pub 2.47m x 0.06m</option>
+              <option value="table">Table 1.6m x 0.8m</option>
+              <option value="tableBasseRonde">Table basse ronde Ø1m</option>
+              <option value="tablePoker">Table poker 2.5m x 1.25m</option>
+              <option value="tableRonde">Table ronde Ø1.5m</option>
+              <option value="tableTraiteur">Table traiteur 2.2m x 0.8m</option>
+             <option value="tente">Tente 65m x 12m</option>
+   <option value="tringles">Tringles 1.11m x 0.5m</option>
+              <option value="upLighter">Up-lighter Ø0.2m</option>
+            </select>
+          </label>
+          <label style="margin-top:6px;">
+            <input type="checkbox" id="preventOverlapCheckbox">
+            Empêcher le chevauchement des objets
+          </label>
+        </fieldset>
+
+        <!-- PANEL OBJET SÉLECTIONNÉ (mode objet) -->
+        <fieldset id="objectSelectionPanel">
+          <legend>Objet sélectionné</legend>
+          <div id="noSelectionMsg">Aucun objet sélectionné.</div>
+          <div id="selectionControls" style="display:none;">
+            <div>Rotation :</div>
+            <div class="small-buttons">
+              <button id="rotateMinus">⟲ -5°</button>
+              <button id="rotatePlus">⟳ +5°</button>
+              <button id="rotate90">↻ 90°</button>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- PANEL DISPOSITIONS (mode dispo) -->
+        <fieldset id="dispositionsPanel" style="display:none;">
+          <legend>Dispositions types (utilisateur)</legend>
+          <label>Nom de la disposition :
+            <input type="text" id="templateName" placeholder="Ex : U conférence">
+          </label>
+          <button id="saveTemplate">Enregistrer la disposition actuelle</button>
+          <button id="saveRoomLayout">Sauvegarder la salle</button>
+          <button id="importRoomBtn">Importer une salle</button>
+          <label>Choisir une disposition enregistrée :
+            <select id="templateSelect"></select>
+          </label>
+          <button id="deleteTemplate">Supprimer</button>
+          <div class="small-buttons">
+            <button type="button" id="rotateLastGroupMinus">⟲ Dispo sélectionnée -5°</button>
+            <button type="button" id="rotateLastGroupPlus">⟳ Dispo sélectionnée +5°</button>
+            <button type="button" id="rotateLastGroup45">↻ Dispo sélectionnée +45°</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Export</legend>
+          <button id="exportImage">Exporter en PNG</button>
+        </fieldset>
+      </div>
+
+      <!-- Sous-panneau : paramètres divers -->
+      <div id="paramsPanel" style="display:none;">
+        <fieldset>
+          <legend>Paramètres techniques</legend>
+
+          <div class="param-row">
+            <span>Écran</span>
+            <div class="param-controls">
+              <label><input type="radio" name="param-screen" value="oui"> Oui</label>
+              <label><input type="radio" name="param-screen" value="non"> Non</label>
+            </div>
+          </div>
+
+          <div class="param-row">
+            <span>Flipchart</span>
+            <div class="param-controls">
+              <label><input type="radio" name="param-flipchart" value="oui"> Oui</label>
+              <label><input type="radio" name="param-flipchart" value="non"> Non</label>
+            </div>
+          </div>
+
+          <div class="param-row">
+            <span>Micro</span>
+            <div class="param-controls">
+              <label><input type="radio" name="param-micro" value="oui"> Oui</label>
+              <label><input type="radio" name="param-micro" value="non"> Non</label>
+            </div>
+          </div>
+
+          <div class="param-row">
+            <span>Multiprise</span>
+            <div class="param-controls">
+              <label><input type="radio" name="param-multiprise" value="oui"> Oui</label>
+              <label><input type="radio" name="param-multiprise" value="non"> Non</label>
+            </div>
+          </div>
+
+          <div class="param-row">
+            <span>Up-lighters</span>
+            <div class="param-controls">
+              <label><input type="radio" name="param-upLighters" value="oui"> Oui</label>
+              <label><input type="radio" name="param-upLighters" value="non"> Non</label>
+            </div>
+          </div>
+
+          <div class="param-row">
+            <span>Parois</span>
+            <div class="param-controls">
+              <label><input type="radio" name="param-parois" value="ouverte"> Ouverte</label>
+              <label><input type="radio" name="param-parois" value="fermée"> Fermée</label>
+              <label><input type="radio" name="param-parois" value="na" checked> Non applicable</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Autres éléments</legend>
+          <div id="extraParamsList"></div>
+          <div style="margin-top:6px;">
+            <label>Nom de l'élément :
+              <input type="text" id="newParamLabel" placeholder="Ex : Pupitre supplémentaire">
+            </label>
+            <button type="button" id="addParamBtn">Ajouter</button>
+          </div>
+        </fieldset>
+
+        <!-- Infos événement -->
+        <fieldset>
+          <legend>Infos événement</legend>
+          <label>Nom du groupe / de l'événement :
+            <input type="text" id="eventTitle">
+          </label>
+          <label>Date de l'événement :
+            <input type="date" id="eventDate">
+          </label>
+          <label>Heure de début :
+            <input type="time" id="eventStart">
+          </label>
+          <label>Heure de fin :
+            <input type="time" id="eventEnd">
+          </label>
+          <label>Minutes de battement (facultatif) :
+            <input type="number" id="eventBuffer" min="0" step="5">
+          </label>
+          <label>Date / heure à laquelle tout doit être prêt :
+            <input type="datetime-local" id="eventReady">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Remarques</legend>
+          <label>Remarques libres :
+            <textarea id="eventRemarks" rows="6" style="width:100%; box-sizing:border-box;"></textarea>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Export</legend>
+          <button type="button" id="exportParamsPngBtn">Exporter paramètres + salle en PNG</button>
+        </fieldset>
+      </div>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <!-- ZONE PRINCIPALE -->
+  <div id="main">
+    <div id="canvasContainer">
+      <canvas id="planCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- NAVIGATION RAPIDE ENTRE PAGES -->
+  <div id="roomNav">
+    <button id="prevRoomBtn">◀</button>
+    <button id="nextRoomBtn">▶</button>
+  </div>
+
+  <script>
+    // =========================
+    //  CONSTANTES & CONFIG
+    // =========================
+
+    const canvas = document.getElementById('planCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const roomWidthControls     = document.getElementById('roomWidthControls');
+    const roomWidthMetersInput  = document.getElementById('roomWidthMeters');
+    const applyRoomSizeBtn      = document.getElementById('applyRoomSize');
+    const clearRoomObjectsBtn   = document.getElementById('clearRoomObjects');
+    const roomImageInput        = document.getElementById('roomImageInput');
+
+    const zoomRange             = document.getElementById('zoomRange');
+    const zoomLabel             = document.getElementById('zoomLabel');
+
+    const objectTypeSelect      = document.getElementById('objectType');
+    const preventOverlapCheckbox= document.getElementById('preventOverlapCheckbox');
+
+    const rotateMinusBtn        = document.getElementById('rotateMinus');
+    const rotatePlusBtn         = document.getElementById('rotatePlus');
+    const rotate90Btn           = document.getElementById('rotate90');
+    const deleteObjectBtn       = document.getElementById('deleteObject');
+
+    const exportImageBtn        = document.getElementById('exportImage');
+    const exportLegendBtn       = document.getElementById('exportLegendBtn');
+    const exportTemplatesBtn    = document.getElementById('exportTemplatesBtn');
+    const importTemplatesBtn    = document.getElementById('importTemplatesBtn');
+    const importTemplatesInput  = document.getElementById('importTemplatesInput');
+    const importRoomBtn         = document.getElementById('importRoomBtn');
+    const importRoomInput       = document.getElementById('importRoomInput');
+
+    const noSelectionMsg        = document.getElementById('noSelectionMsg');
+    const selectionControls     = document.getElementById('selectionControls');
+    const statusDiv             = document.getElementById('status');
+
+    const templateNameInput     = document.getElementById('templateName');
+    const templateSelect        = document.getElementById('templateSelect');
+    const templateSaveBtn       = document.getElementById('saveTemplate');
+    const saveRoomLayoutBtn      = document.getElementById('saveRoomLayout');
+    const rotateLastGroupMinusBtn = document.getElementById('rotateLastGroupMinus');
+    const rotateLastGroupPlusBtn  = document.getElementById('rotateLastGroupPlus');
+    const rotateLastGroup45Btn    = document.getElementById('rotateLastGroup45');
+
+    const prevRoomBtn           = document.getElementById('prevRoomBtn');
+    const nextRoomBtn           = document.getElementById('nextRoomBtn');
+
+    const homePanel             = document.getElementById('homePanel');
+    const manualPanel           = document.getElementById('manualPanel');
+    const editorPanels          = document.getElementById('editorPanels');
+    const tocDiv                = document.getElementById('toc');
+
+    const modeObjectBtn         = document.getElementById('modeObjectBtn');
+    const modeDispoBtn          = document.getElementById('modeDispoBtn');
+    const objectSelectionPanel  = document.getElementById('objectSelectionPanel');
+    const dispositionsPanel     = document.getElementById('dispositionsPanel');
+
+    const panelLayoutBtn        = document.getElementById('panelLayoutBtn');
+    const panelParamsBtn        = document.getElementById('panelParamsBtn');
+    const layoutPanelDiv        = document.getElementById('layoutPanel');
+    const paramsPanelDiv        = document.getElementById('paramsPanel');
+    const extraParamsListDiv    = document.getElementById('extraParamsList');
+    const newParamLabelInput    = document.getElementById('newParamLabel');
+    const addParamBtn           = document.getElementById('addParamBtn');
+    const exportParamsPngBtn    = document.getElementById('exportParamsPngBtn');
+
+    // Infos événement
+    const eventTitleInput       = document.getElementById('eventTitle');
+    const eventDateInput        = document.getElementById('eventDate');
+    const eventStartInput       = document.getElementById('eventStart');
+    const eventEndInput         = document.getElementById('eventEnd');
+    const eventBufferInput      = document.getElementById('eventBuffer');
+    const eventReadyInput       = document.getElementById('eventReady');
+    const eventRemarksTextarea  = document.getElementById('eventRemarks');
+
+    const ROOM_COUNT       = 17;
+    const MANUAL_PAGE_INDEX = ROOM_COUNT + 1; // 16
+    const TOTAL_PAGES      = ROOM_COUNT + 2;  // 0 = légende, 1..15 = salles, 16 = manuel
+    const DEFAULT_WIDTH_M  = 12.75;
+    const DEFAULT_HEIGHT_M = 16.5;
+    const DEFAULT_ASPECT   = DEFAULT_HEIGHT_M / DEFAULT_WIDTH_M;
+
+    // Largeurs réelles par salle 1..12, puis valeurs par défaut
+    const ROOM_DEFAULT_WIDTHS = [
+      10.5, // 1 River Flow
+      8.5,  // 2 River
+      10.5, // 3 Flow
+      8,    // 4 Bounty
+      12.5, // 5 Yacht
+      21,   // 6 Terrasse Yacht
+      15,   // 7 Coffie Corner
+      21,   // 8 Blue Ocean
+      25,   // 9 Blue Ocean & Couloir
+      21.5, // 10 Blue
+      10,   // 11 Ocean
+      35,   // 12 Casino Club
+      DEFAULT_WIDTH_M, // 13
+      DEFAULT_WIDTH_M, // 14
+      DEFAULT_WIDTH_M, // 15
+      33,   // 16 Resto
+      120    // 17 Parking
+    ];
+
+    // Noms des pages
+    const pageNames = [
+      null,
+      "River Flow",
+      "River",
+      "Flow",
+      "Bounty",
+      "Yacht Club",
+      "Terrasse Yacht Club",
+      "Coffie Corner",
+      "Blue Ocean",
+      "Blue Ocean & couloir",
+      "Blue",
+      "Ocean",
+      "Casino Club",
+      null,
+      null,
+      null,
+      "Resto",
+      "Parking"
+    ];
+
+    const objectLegend = [
+{ type: 'blocPodium', label: 'Bloc de podium' },
+     { type: 'chair',             label: 'Chaise' },
+     { type: 'tente',             label: 'Tente' },
+      { type: 'deskHotesses',      label: 'Desk hôtesses' },
+      { type: 'deskLumineux',      label: 'Desk lumineux' },
+      { type: 'ecranMobile',       label: 'Ecran mobile' },
+      { type: 'fauteuilCasinoClub',label: 'Fauteuil casino club' },
+      { type: 'fauteuilCouloir',   label: 'Fauteuil couloir' },
+      { type: 'flipchart',         label: 'Flipchart' },
+      { type: 'initBlackjack',     label: 'Initiation blackjack' },
+      { type: 'initRoulette',      label: 'Initiation roulette' },
+      { type: 'mangeDeboutBlanc',  label: 'Mange-debout blanc' },
+      { type: 'mangeDeboutCarre',  label: 'Mange-debout carré' },
+      { type: 'mangeDeboutGris',   label: 'Mange-debout gris' },
+      { type: 'petitFauteuil',     label: 'Petit fauteuil' },
+ { type: 'podium', label: 'Podium' },
+      { type: 'pupitre',           label: 'Pupitre' },
+      { type: 'sepGrise',          label: 'Séparation grise' },
+      { type: 'sepPkrstrs',        label: 'Séparation pkrstrs' },
+      { type: 'sepPub',            label: 'Séparation pub' },
+      { type: 'table',             label: 'Table' },
+      { type: 'tableBasseRonde',   label: 'Table basse ronde' },
+      { type: 'tablePoker',        label: 'Table poker' },
+      { type: 'tableRonde',        label: 'Table ronde' },
+      { type: 'tableTraiteur',     label: 'Table traiteur' },
+      { type: 'tringles',          label: 'Tringles' },
+      { type: 'upLighter',         label: 'Up-lighter' }
+    ];
+
+    const FIXED_PARAMS = [
+      { key: 'screen',     radioName: 'param-screen' },
+      { key: 'flipchart',  radioName: 'param-flipchart' },
+      { key: 'micro',      radioName: 'param-micro' },
+      { key: 'multiprise', radioName: 'param-multiprise' },
+      { key: 'upLighters', radioName: 'param-upLighters' }
+    ];
+
+    // =========================
+    //  ÉTAT GLOBAL
+    // =========================
+
+    const rooms = [];
+    for (let i = 0; i < ROOM_COUNT; i++) {
+      const defaultName = 'Salle ' + (i + 1);
+      const override    = pageNames[i + 1] || defaultName;
+      const width       = ROOM_DEFAULT_WIDTHS[i] ?? DEFAULT_WIDTH_M;
+
+      rooms.push({
+  name: override,
+  backgroundImage: null,
+  imageLoaded: false,
+  roomWidthMeters: width,
+  roomHeightMeters: DEFAULT_HEIGHT_M,
+  objects: [],
+  nextObjectId: 1,
+  selectedObjectId: null,      // objet “actif” (dernier cliqué)
+  selectedObjectIds: [],       // multi-sélection
+  undoStack: [],
+  zoom: 1,
+  params: {
+          screen: 'non',
+          flipchart: 'non',
+          micro: 'non',
+          multiprise: 'non',
+          upLighters: 'non',
+          parois: 'na',
+          others: [],
+          event: {
+            title: '',
+            date: '',
+            start: '',
+            end: '',
+            buffer: '',
+            ready: ''
+          },
+          remarks: ''
+        }
+      });
+    }
+
+    let currentPageIndex = 0;
+    let currentRoomIndex = 0;
+
+    let scaleX = 1;
+    let scaleY = 1;
+
+    let templates = [];
+    let placingTemplate          = false;
+    let currentPlacementTemplate = null;
+    let templatePlacementAngleDeg = 0;
+
+    let dispositionGroups = {};
+    let nextGroupId       = 1;
+    let lastPlacedGroupInfo = null;
+
+    let interactionMode = 'object';
+    let editorPanelMode = 'layout';
+
+    let movingGroupActive   = false;
+    let activeGroupId       = null;
+    let groupLastMouseXM    = 0;
+    let groupLastMouseYM    = 0;
+// pour le déplacement d’un ensemble d’objets en mode "objet"
+let lastMouseXM         = 0;
+let lastMouseYM         = 0;
+
+
+    let isDrawingLegend = false;
+
+    let preventOverlap = false;
+
+    let mouseDown        = false;
+    let mouseDownOnObject= null;
+    let mouseDownPos     = { xPx: 0, yPx: 0 };
+    let dragStarted      = false;
+    let isDragging       = false;
+      // Guides d'alignement (en mètres, null = pas de guide)
+    let alignmentGuideX = null; // ligne verticale
+    let alignmentGuideY = null; // ligne horizontale
+  let dragOffsetXM     = 0;
+    let dragOffsetYM     = 0;
+
+    // =========================
+    //  UTILITAIRES
+    // =========================
+
+    function getCurrentRoom() {
+      return rooms[currentRoomIndex];
+    }
+
+    function ensureRoomParams(room) {
+      if (!room.params) {
+        room.params = {
+          screen: 'non',
+          flipchart: 'non',
+          micro: 'non',
+          multiprise: 'non',
+          upLighters: 'non',
+          parois: 'ouverte',
+          others: [],
+          event: {
+            title: '',
+            date: '',
+            start: '',
+            end: '',
+            buffer: '',
+            ready: ''
+          },
+          remarks: ''
+        };
+      } else {
+        if (room.params.screen !== 'oui' && room.params.screen !== 'non') room.params.screen = 'non';
+        if (room.params.flipchart !== 'oui' && room.params.flipchart !== 'non') room.params.flipchart = 'non';
+        if (room.params.micro !== 'oui' && room.params.micro !== 'non') room.params.micro = 'non';
+        if (room.params.multiprise !== 'oui' && room.params.multiprise !== 'non') room.params.multiprise = 'non';
+        if (room.params.upLighters !== 'oui' && room.params.upLighters !== 'non') room.params.upLighters = 'non';
+        if (room.params.parois !== 'ouverte' &&
+            room.params.parois !== 'fermée' &&
+            room.params.parois !== 'na') {
+          room.params.parois = 'na';
+        }
+        if (!Array.isArray(room.params.others)) room.params.others = [];
+        if (!room.params.event || typeof room.params.event !== 'object') {
+          room.params.event = {
+            title: '',
+            date: '',
+            start: '',
+            end: '',
+            buffer: '',
+            ready: ''
+          };
+        } else {
+          room.params.event.title  = room.params.event.title  || '';
+          room.params.event.date   = room.params.event.date   || '';
+          room.params.event.start  = room.params.event.start  || '';
+          room.params.event.end    = room.params.event.end    || '';
+          room.params.event.buffer = room.params.event.buffer || '';
+          room.params.event.ready  = room.params.event.ready  || '';
+        }
+        if (typeof room.params.remarks !== 'string') {
+          room.params.remarks = room.params.remarks ? String(room.params.remarks) : '';
+        }
+      }
+      return room.params;
+    }
+
+    function roomImageKey(roomIndex) {
+      return 'roomImage_' + roomIndex;
+    }
+
+    function setStatus(msg) {
+      statusDiv.textContent = msg || '';
+    }
+
+    function getObjectAABB(obj) {
+      const angleRad = (obj.angleDeg || 0) * Math.PI / 180;
+      const cos = Math.cos(angleRad);
+      const sin = Math.sin(angleRad);
+      const hx = obj.wM / 2;
+      const hy = obj.hM / 2;
+      const corners = [
+        { x: -hx, y: -hy },
+        { x:  hx, y: -hy },
+        { x:  hx, y:  hy },
+        { x: -hx, y:  hy }
+      ].map(p => ({
+        x: obj.xM + p.x * cos - p.y * sin,
+        y: obj.yM + p.x * sin + p.y * cos
+      }));
+
+      return {
+        minX: Math.min(...corners.map(p => p.x)),
+        maxX: Math.max(...corners.map(p => p.x)),
+        minY: Math.min(...corners.map(p => p.y)),
+        maxY: Math.max(...corners.map(p => p.y))
+      };
+    }
+
+    function objectsOverlap(a, b) {
+      const aa = getObjectAABB(a);
+      const bb = getObjectAABB(b);
+      return !(aa.maxX <= bb.minX || aa.minX >= bb.maxX || aa.maxY <= bb.minY || aa.minY >= bb.maxY);
+    }
+
+    function wouldOverlapAny(candidateObjects, roomObjects, ignoreIds = new Set()) {
+      for (const cand of candidateObjects) {
+        for (const other of roomObjects) {
+          if (ignoreIds.has(other.id)) continue;
+          if (objectsOverlap(cand, other)) return true;
+        }
+      }
+
+      for (let i = 0; i < candidateObjects.length; i++) {
+        for (let j = i + 1; j < candidateObjects.length; j++) {
+          if (objectsOverlap(candidateObjects[i], candidateObjects[j])) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function isObjectInsideRoom(obj, room) {
+      const aabb = getObjectAABB(obj);
+      return (
+        aabb.minX >= 0 &&
+        aabb.minY >= 0 &&
+        aabb.maxX <= room.roomWidthMeters &&
+        aabb.maxY <= room.roomHeightMeters
+      );
+    }
+
+    function areObjectsInsideRoom(candidateObjects, room) {
+      return candidateObjects.every(obj => isObjectInsideRoom(obj, room));
+    }
+
+    function hasObjectsOutsideRoom(candidateObjects, room) {
+      return !areObjectsInsideRoom(candidateObjects, room);
+    }
+
+    function showHomeUI() {
+      homePanel.style.display   = 'block';
+      if (manualPanel) manualPanel.style.display = 'none';
+      editorPanels.style.display= 'none';
+      document.body.classList.remove('manual-page');
+      setStatus('');
+    }
+
+    function showManualUI() {
+      homePanel.style.display   = 'none';
+      if (manualPanel) manualPanel.style.display = 'block';
+      editorPanels.style.display= 'none';
+      document.body.classList.add('manual-page');
+      setStatus('');
+    }
+
+    function showEditorUI() {
+      homePanel.style.display   = 'none';
+      if (manualPanel) manualPanel.style.display = 'none';
+      editorPanels.style.display= 'block';
+      document.body.classList.remove('manual-page');
+      setStatus('');
+    }
+
+    function updateModeUI() {
+      if (!objectSelectionPanel || !dispositionsPanel || !modeObjectBtn || !modeDispoBtn) return;
+      if (interactionMode === 'object') {
+        objectSelectionPanel.style.display = 'block';
+        dispositionsPanel.style.display    = 'none';
+        modeObjectBtn.disabled = true;
+        modeDispoBtn.disabled  = false;
+      } else {
+        objectSelectionPanel.style.display = 'none';
+        dispositionsPanel.style.display    = 'block';
+        modeObjectBtn.disabled = false;
+        modeDispoBtn.disabled  = true;
+      }
+    }
+
+    function updateEditorPanelModeUI() {
+      if (!layoutPanelDiv || !paramsPanelDiv) return;
+      if (editorPanelMode === 'layout') {
+        layoutPanelDiv.style.display  = 'block';
+        paramsPanelDiv.style.display  = 'none';
+        if (panelLayoutBtn) panelLayoutBtn.disabled = true;
+        if (panelParamsBtn) panelParamsBtn.disabled = false;
+      } else {
+        layoutPanelDiv.style.display  = 'none';
+        paramsPanelDiv.style.display  = 'block';
+        if (panelLayoutBtn) panelLayoutBtn.disabled = false;
+        if (panelParamsBtn) panelParamsBtn.disabled = true;
+        refreshParamsUI();
+      }
+    }
+
+    function metersFromPixels(xPx, yPx) {
+      return { xM: xPx / scaleX, yM: yPx / scaleY };
+    }
+    function pixelsFromMeters(xM, yM) {
+      return { xPx: xM * scaleX, yPx: yM * scaleY };
+    }
+
+    function roomImageFromStorage(roomIndex) {
+      try { return localStorage.getItem(roomImageKey(roomIndex)); }
+      catch { return null; }
+    }
+
+    // =========================
+    //  OBJETS & DIMENSIONS
+    // =========================
+
+    function getObjectSize(type) {
+      switch (type) {
+        case 'table':            return { wM: 1.6, hM: 0.8 };
+        case 'chair':            return { wM: 0.45, hM: 0.45 };
+        case 'tente':            return { wM: 65, hM: 12 };
+        case 'tablePoker':       return { wM: 2.5, hM: 1.25 };
+        case 'flipchart':        return { wM: 0.6, hM: 0.6 };
+        case 'deskHotesses':     return { wM: 0.9, hM: 0.5 };
+        case 'pupitre':          return { wM: 0.62, hM: 0.4 };
+        case 'mangeDeboutCarre': return { wM: 0.7, hM: 0.7 };
+        case 'mangeDeboutBlanc': return { wM: 0.8, hM: 0.8 };
+        case 'mangeDeboutGris':  return { wM: 0.85, hM: 0.85 };
+        case 'sepGrise':         return { wM: 0.8, hM: 0.05 };
+        case 'sepPkrstrs':       return { wM: 1.0, hM: 0.05 };
+        case 'sepPub':           return { wM: 2.47, hM: 0.06 };
+        case 'tringles':         return { wM: 1.11, hM: 0.5 };
+        case 'tableRonde':       return { wM: 1.5, hM: 1.5 };
+        case 'petitFauteuil':    return { wM: 0.7, hM: 0.65 };
+        case 'deskLumineux':     return { wM: 1.2, hM: 0.6 };
+        case 'tableTraiteur':    return { wM: 2.2, hM: 0.8 };
+        case 'tableBasseRonde':  return { wM: 1.0, hM: 1.0 };
+        case 'fauteuilCouloir':  return { wM: 1.5, hM: 0.85 };
+        case 'fauteuilCasinoClub':return{ wM: 1.1, hM: 0.9 };
+        case 'ecranMobile':      return { wM: 1.47, hM: 0.8 };
+        case 'initRoulette':     return { wM: 2.5, hM: 1.5 };
+        case 'initBlackjack':    return { wM: 2.5, hM: 1.5 };
+        case 'upLighter':        return { wM: 0.2, hM: 0.2 };
+case 'podium':          return { wM: 6, hM: 2 };
+case 'blocPodium':      return { wM: 2, hM: 1 };
+        default:                 return { wM: 1.0, hM: 0.5 };
+      }
+    }
+
+    // =========================
+    //  SCALE & ROOM IMAGES
+    // =========================
+
+    function updateScale() {
+      const room = getCurrentRoom();
+      let roomWidth = room.roomWidthMeters;
+
+      if (currentRoomIndex >= 12 && currentRoomIndex <= 14) {
+        const newWidth = parseFloat(roomWidthMetersInput.value);
+        if (!newWidth || newWidth <= 0) {
+          setStatus("Largeur réelle invalide.");
+          return;
+        }
+        roomWidth = newWidth;
+        room.roomWidthMeters = newWidth;
+      }
+
+      let aspect = DEFAULT_ASPECT;
+      if (room.imageLoaded && room.backgroundImage) {
+        aspect = room.backgroundImage.height / room.backgroundImage.width;
+      } else if (canvas.width > 0 && canvas.height > 0) {
+        aspect = canvas.height / canvas.width;
+      }
+      room.roomHeightMeters = roomWidth * aspect;
+
+      const scale = canvas.width / roomWidth;
+      scaleX = scale;
+      scaleY = scale;
+      draw();
+    }
+
+    function loadRoomImageFromStorage(roomIndex) {
+      const dataURL = roomImageFromStorage(roomIndex);
+      if (!dataURL) return;
+
+      const img = new Image();
+      img.onload = function() {
+        const room = rooms[roomIndex];
+        room.backgroundImage = img;
+        room.imageLoaded = true;
+
+        if (roomIndex === currentRoomIndex && currentPageIndex !== 0 && currentPageIndex !== MANUAL_PAGE_INDEX) {
+          canvas.width  = img.width;
+          canvas.height = img.height;
+          updateScale();
+          draw();
+        }
+      };
+      img.src = dataURL;
+    }
+
+    // Chargement automatique des images 01.png ... 12.png pour les salles 1..12
+    function loadDefaultRoomImage(roomIndex) {
+      if (roomIndex < 0 || roomIndex >= 12) return;
+
+      const img = new Image();
+      const num = String(roomIndex + 1).padStart(2, '0'); // 0 -> "01", 1 -> "02", ...
+
+      img.onload = function() {
+        const room = rooms[roomIndex];
+        room.backgroundImage = img;
+        room.imageLoaded = true;
+
+        if (roomIndex === currentRoomIndex && currentPageIndex !== 0 && currentPageIndex !== MANUAL_PAGE_INDEX) {
+          canvas.width  = img.width;
+          canvas.height = img.height;
+          updateScale();
+          draw();
+        }
+      };
+
+      img.onerror = function() {
+        console.warn('Image par défaut introuvable pour la salle', roomIndex + 1, num + '.png');
+      };
+
+      img.src = num + '.png'; // cherche 01.png, 02.png, ... dans le même dossier que le HTML
+    }
+
+    function loadNamedRoomImage(roomIndex, fileName) {
+      if (roomIndex < 0 || roomIndex >= ROOM_COUNT) return;
+
+      const img = new Image();
+
+      img.onload = function() {
+        const room = rooms[roomIndex];
+        room.backgroundImage = img;
+        room.imageLoaded = true;
+
+        if (roomIndex === currentRoomIndex && currentPageIndex !== 0 && currentPageIndex !== MANUAL_PAGE_INDEX) {
+          canvas.width  = img.width;
+          canvas.height = img.height;
+          updateScale();
+          draw();
+        }
+      };
+
+      img.onerror = function() {
+        console.warn('Image par défaut introuvable pour la salle', roomIndex + 1, fileName);
+      };
+
+      img.src = fileName;
+    }
+
+    function applyZoomToCanvas() {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        canvas.style.transform = 'scale(1)';
+        zoomLabel.textContent = '100%';
+        return;
+      }
+      const room = getCurrentRoom();
+      const zoom = room.zoom || 1;
+      canvas.style.transform = 'scale(' + zoom + ')';
+      zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    }
+
+    // =========================
+    //  DESSIN
+    // =========================
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+// Page 0 : afficher simplement 00.png
+if (currentPageIndex === 0) {
+  if (!window.legendImage00) {
+    window.legendImage00 = new Image();
+    window.legendImage00.src = "00.png";
+    window.legendImage00.onload = () => draw();
+  }
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (window.legendImage00.complete) {
+    ctx.drawImage(window.legendImage00, 0, 0, canvas.width, canvas.height);
+  }
+
+  return;
+}
+
+      // Page manuel
+      if (currentPageIndex === MANUAL_PAGE_INDEX) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      const room = getCurrentRoom();
+
+      if (room.imageLoaded && room.backgroundImage) {
+        ctx.drawImage(room.backgroundImage, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = '#ccc';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText("Aucune image chargée pour cette salle.", 10, 10);
+      }
+
+      for (const obj of room.objects) {
+        drawObject(obj);
+      }
+
+if (interactionMode === 'object') {
+  let selIds = null;
+
+  if (room.selectedObjectIds && room.selectedObjectIds.length > 0) {
+    selIds = new Set(room.selectedObjectIds);   // multi-sélection
+  } else if (room.selectedObjectId != null) {
+    selIds = new Set([room.selectedObjectId]);  // sélection simple
+  }
+
+  if (selIds) {
+    for (const o of room.objects) {
+      if (selIds.has(o.id)) {
+        drawSelectionOutline(o);
+      }
+    }
+  }
+} else if (interactionMode === 'dispo' && lastPlacedGroupInfo && lastPlacedGroupInfo.roomIndex === currentRoomIndex) {
+  const group = dispositionGroups[lastPlacedGroupInfo.groupId];
+  if (group && group.ids && group.ids.length) {
+    const idSet = new Set(group.ids);
+    for (const o of room.objects) {
+      if (idSet.has(o.id)) drawSelectionOutline(o);
+    }
+  }
+}
+
+      // Dessin des guides d'alignement (si présents)
+      if (alignmentGuideX != null || alignmentGuideY != null) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.8)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([10, 6]);
+
+        if (alignmentGuideX != null) {
+          const xPx = alignmentGuideX * scaleX;
+          ctx.beginPath();
+          ctx.moveTo(xPx, 0);
+          ctx.lineTo(xPx, canvas.height);
+          ctx.stroke();
+        }
+
+        if (alignmentGuideY != null) {
+          const yPx = alignmentGuideY * scaleY;
+          ctx.beginPath();
+          ctx.moveTo(0, yPx);
+          ctx.lineTo(canvas.width, yPx);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+
+      ctx.save();
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+
+      const text    = room.name;
+      const padding = 4;
+      const metrics = ctx.measureText(text);
+      const w       = metrics.width;
+      const h       = 18;
+
+      ctx.fillRect(8, 8, w + padding * 2, h + padding * 2);
+      ctx.fillStyle = '#000';
+      ctx.fillText(text, 8 + padding, 8 + padding);
+      ctx.restore();
+    }
+
+    function drawLegend() {
+      const legendScale = 170;
+      const colCount    = 4;
+      const perCol      = Math.ceil(objectLegend.length / colCount);
+
+      let maxH_M = 0;
+      for (const item of objectLegend) {
+        const sz = getObjectSize(item.type);
+        if (sz.hM > maxH_M) maxH_M = sz.hM;
+      }
+      const maxShapeHpx        = maxH_M * legendScale;
+      const labelFontSize      = 70;
+      const labelToShapeMargin = 120;
+      const bottomMargin       = 80;
+      const rowGap             = labelToShapeMargin + maxShapeHpx + bottomMargin;
+
+      const totalWidth  = canvas.width;
+      const sideMargin  = 700;
+      const usableWidth = totalWidth - sideMargin * 2;
+
+      const colCenters = [];
+      for (let i = 0; i < colCount; i++) {
+        const t = colCount === 1 ? 0.5 : i / (colCount - 1);
+        colCenters.push(sideMargin + usableWidth * t);
+      }
+
+      const startY = 260;
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      objectLegend.forEach((item, index) => {
+        const col = Math.floor(index / perCol);
+        const row = index % perCol;
+
+        const x      = colCenters[col];
+        const yLabel = startY + row * rowGap;
+
+        ctx.fillStyle = '#000';
+        ctx.font = labelFontSize + 'px sans-serif';
+        ctx.fillText(item.label, x, yLabel);
+
+        const sz        = getObjectSize(item.type);
+        const shapeHpx  = sz.hM * legendScale;
+        const yShape    = yLabel + labelToShapeMargin + shapeHpx / 2;
+
+        drawLegendShape(item.type, x, yShape, legendScale);
+      });
+    }
+
+    function drawLegendShape(type, xPx, yPx, legendScale) {
+      const prevIsLegend = isDrawingLegend;
+      isDrawingLegend = true;
+
+      const size = getObjectSize(type);
+      const obj  = {
+        type,
+        xM: xPx / legendScale,
+        yM: yPx / legendScale,
+        wM: size.wM,
+        hM: size.hM,
+        angleDeg: 0
+      };
+
+      internalDrawObject(ctx, obj, legendScale, legendScale);
+      isDrawingLegend = prevIsLegend;
+    }
+
+    function internalDrawObject(context, obj, scaleXLocal, scaleYLocal) {
+      const xPx     = obj.xM * scaleXLocal;
+      const yPx     = obj.yM * scaleYLocal;
+      const wPx     = obj.wM * scaleXLocal;
+      const hPx     = obj.hM * scaleYLocal;
+      const angleRad= obj.angleDeg * Math.PI / 180;
+
+      context.save();
+      context.translate(xPx, yPx);
+      context.rotate(angleRad);
+
+      context.lineWidth  = isDrawingLegend ? 4 : 1;
+      context.font       = isDrawingLegend ? '40px sans-serif' : '10px sans-serif';
+      context.textAlign  = 'center';
+      context.textBaseline = 'middle';
+
+      // ... (tous les cas de dessin d’objets inchangés)
+      if (obj.type === 'table') {
+        context.fillStyle   = '#f5f5f5';
+        context.strokeStyle = '#333';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.beginPath();
+        context.moveTo(0, 0);
+        context.lineTo(wPx / 2, 0);
+        context.stroke();
+    } else if (obj.type === 'chair') {
+  context.strokeStyle = '#000';
+
+  // chaise qui occupe toute la boîte wPx x hPx
+  const seatH = hPx * 0.6;
+  const backH = hPx * 0.4;
+
+  // siège : bas
+  context.strokeRect(-wPx / 2, -seatH / 2 + backH / 2, wPx, seatH);
+
+  // dossier : en haut
+  context.strokeRect(-wPx / 2, -hPx / 2, wPx, backH);
+}
+ else if (obj.type === 'tablePoker') {
+        context.fillStyle   = '#e0f2f1';
+        context.strokeStyle = '#004d40';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#004d40';
+        context.fillText('POKER', 0, 0);
+      } else if (obj.type === 'flipchart') {
+        const r = Math.min(wPx, hPx) / 2;
+        context.strokeStyle = '#000';
+        context.beginPath();
+        context.arc(0, 0, r, 0, Math.PI * 2);
+        context.stroke();
+        context.fillStyle = '#000';
+        context.fillText('F', 0, 0);
+      } else if (obj.type === 'deskHotesses') {
+        context.strokeStyle = '#000';
+        context.beginPath();
+        context.moveTo(-wPx / 2, 0);
+        context.quadraticCurveTo(0, -hPx / 2, wPx / 2, 0);
+        context.quadraticCurveTo(0, hPx / 2, -wPx / 2, 0);
+        context.closePath();
+        context.stroke();
+      } else if (obj.type === 'pupitre') {
+        context.strokeStyle = '#000';
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.save();
+        context.beginPath();
+        context.rect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.clip();
+        context.strokeStyle = '#aaa';
+        const step = isDrawingLegend ? 20 : 5;
+        for (let x = -wPx; x <= wPx; x += step) {
+          context.beginPath();
+          context.moveTo(x, -hPx / 2);
+          context.lineTo(x + hPx, hPx / 2);
+          context.stroke();
+        }
+        context.restore();
+      } else if (obj.type === 'mangeDeboutCarre') {
+        context.fillStyle = '#000';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      } else if (obj.type === 'mangeDeboutBlanc') {
+        const r = Math.min(wPx, hPx) / 2;
+        context.fillStyle   = '#fff';
+        context.strokeStyle = '#000';
+        context.beginPath();
+        context.arc(0, 0, r, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      } else if (obj.type === 'mangeDeboutGris') {
+        const r = Math.min(wPx, hPx) / 2;
+        context.fillStyle   = '#b0bec5';
+        context.strokeStyle = '#455a64';
+        context.beginPath();
+        context.arc(0, 0, r, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      } else if (obj.type === 'sepGrise') {
+        context.fillStyle = '#9e9e9e';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      } else if (obj.type === 'sepPkrstrs') {
+        context.fillStyle = '#c62828';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      } else if (obj.type === 'sepPub') {
+        context.fillStyle = '#f48fb1';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      } else if (obj.type === 'tringles') {
+        context.fillStyle = '#1565c0';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      } else if (obj.type === 'tableRonde') {
+        const r = Math.min(wPx, hPx) / 2;
+        context.fillStyle   = '#8d6e63';
+        context.strokeStyle = '#4e342e';
+        context.beginPath();
+        context.arc(0, 0, r, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      } else if (obj.type === 'petitFauteuil') {
+        context.strokeStyle = '#000';
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#000';
+        context.fillText('fau', 0, 0);
+      } else if (obj.type === 'deskLumineux') {
+        context.fillStyle   = '#fff176';
+        context.strokeStyle = '#fdd835';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      } else if (obj.type === 'tableTraiteur') {
+        context.fillStyle   = '#e3f2fd';
+        context.strokeStyle = '#0d47a1';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#0d47a1';
+        context.fillText('TT', 0, 0);
+      } else if (obj.type === 'tableBasseRonde') {
+        const r = Math.min(wPx, hPx) / 2;
+        context.fillStyle   = '#ffe0b2';
+        context.strokeStyle = '#ffb74d';
+        context.beginPath();
+        context.arc(0, 0, r, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.fillStyle   = '#5d4037';
+        context.fillText('tb', 0, 0);
+      } else if (obj.type === 'fauteuilCouloir') {
+        context.fillStyle   = '#d7ccc8';
+        context.strokeStyle = '#5d4037';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#5d4037';
+        context.fillText('FAUT C', 0, 0);
+      } else if (obj.type === 'fauteuilCasinoClub') {
+        context.fillStyle   = '#fff3e0';
+        context.strokeStyle = '#bf360c';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#bf360c';
+        context.fillText('FAU', 0, 0);
+      } else if (obj.type === 'ecranMobile') {
+        context.fillStyle   = '#b0bec5';
+        context.strokeStyle = '#455a64';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#263238';
+        context.fillText('ECRAN', 0, 0);
+      } else if (obj.type === 'upLighter') {
+        const r = Math.min(wPx, hPx) / 2;
+        context.fillStyle   = '#ffffff';
+        context.strokeStyle = '#000000';
+        context.beginPath();
+        context.arc(0, 0, r, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.fillStyle   = '#000000';
+        context.fillText('U', 0, 0);
+      } else if (obj.type === 'initRoulette') {
+        context.fillStyle   = '#ffe082';
+        context.strokeStyle = '#ff8f00';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#bf360c';
+        context.fillText('INIT R', 0, 0);
+      } else if (obj.type === 'initBlackjack') {
+        context.fillStyle   = '#c5e1a5';
+        context.strokeStyle = '#7cb342';
+        context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+        context.fillStyle   = '#1b5e20';
+        context.fillText('INIT BJ', 0, 0);
+     } else if (obj.type === 'podium') {
+  context.fillStyle   = '#f8c8d8';   // rose clair
+  context.strokeStyle = '#c2185b';   // contour rose foncé
+  context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+  context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+  context.fillStyle = '#c2185b';
+  context.font = isDrawingLegend ? '50px sans-serif' : '14px sans-serif';
+  context.fillText('PODIUM', 0, 0);
+} else if (obj.type === 'blocPodium') {
+  context.fillStyle   = '#f8c8d8';
+  context.strokeStyle = '#c2185b';
+  context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+  context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+  context.fillStyle = '#c2185b';
+  context.font = isDrawingLegend ? '40px sans-serif' : '12px sans-serif';
+  context.fillText('Bloc Podium', 0, 0);
+} else if (obj.type === 'tente') {
+  context.fillStyle   = 'rgba(144, 202, 249, 0.25)';
+  context.strokeStyle = '#1565c0';
+  context.lineWidth   = isDrawingLegend ? 6 : 2;
+  context.fillRect(-wPx / 2, -hPx / 2, wPx, hPx);
+  context.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+  context.beginPath();
+  context.strokeStyle = 'rgba(21, 101, 192, 0.35)';
+  context.moveTo(-wPx / 2, -hPx / 2);
+  context.lineTo(wPx / 2, hPx / 2);
+  context.moveTo(wPx / 2, -hPx / 2);
+  context.lineTo(-wPx / 2, hPx / 2);
+  context.stroke();
+  context.fillStyle = '#1565c0';
+  context.font = isDrawingLegend ? '50px sans-serif' : '16px sans-serif';
+  context.fillText('TENTE 65\u00d712m', 0, 0);
+}
+
+      context.restore();
+    }
+
+    function drawObject(obj) {
+      internalDrawObject(ctx, obj, scaleX, scaleY);
+    }
+
+    function drawSelectionOutline(obj) {
+      const xPx     = obj.xM * scaleX;
+      const yPx     = obj.yM * scaleY;
+      const wPx     = obj.wM * scaleX;
+      const hPx     = obj.hM * scaleY;
+      const angleRad= obj.angleDeg * Math.PI / 180;
+
+      ctx.save();
+      ctx.translate(xPx, yPx);
+      ctx.rotate(angleRad);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth   = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+      ctx.restore();
+      ctx.setLineDash([]);
+    }
+
+    // =========================
+    //  HIT-TEST & SÉLECTION
+    // =========================
+
+    function hitTestObject(obj, xPx, yPx) {
+      const center  = pixelsFromMeters(obj.xM, obj.yM);
+      const dx      = xPx - center.xPx;
+      const dy      = yPx - center.yPx;
+      const angleRad= obj.angleDeg * Math.PI / 180;
+      const cos     = Math.cos(-angleRad);
+      const sin     = Math.sin(-angleRad);
+      const rx      = dx * cos - dy * sin;
+      const ry      = dx * sin + dy * cos;
+      const halfW   = obj.wM * scaleX / 2;
+      const halfH   = obj.hM * scaleY / 2;
+      return Math.abs(rx) <= halfW && Math.abs(ry) <= halfH;
+    }
+
+    function findObjectAtPixel(xPx, yPx) {
+      const room = getCurrentRoom();
+      for (let i = room.objects.length - 1; i >= 0; i--) {
+        if (hitTestObject(room.objects[i], xPx, yPx)) return room.objects[i];
+      }
+      return null;
+    }
+
+    function refreshSelectionUI() {
+  if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+    if (noSelectionMsg)   noSelectionMsg.style.display = 'block';
+    if (selectionControls)selectionControls.style.display = 'none';
+    return;
+  }
+  const room = getCurrentRoom();
+  const hasSelection =
+    (room.selectedObjectIds && room.selectedObjectIds.length > 0) ||
+    (room.selectedObjectId != null);
+
+  if (!noSelectionMsg || !selectionControls) return;
+  if (hasSelection) {
+    noSelectionMsg.style.display    = 'none';
+    selectionControls.style.display = 'block';
+  } else {
+    noSelectionMsg.style.display    = 'block';
+    selectionControls.style.display = 'none';
+  }
+}
+
+
+
+function getSelectedObjectIds(room) {
+  const set = new Set();
+
+  if (Array.isArray(room.selectedObjectIds)) {
+    for (const id of room.selectedObjectIds) {
+      set.add(id);
+    }
+  }
+
+  if (room.selectedObjectId != null) {
+    set.add(room.selectedObjectId);
+  }
+
+  return Array.from(set);
+}
+
+// Calcule les lignes d'alignement lors du déplacement d'une sélection
+function updateAlignmentGuides(room, selectedIds) {
+  alignmentGuideX = null;
+  alignmentGuideY = null;
+
+  if (!selectedIds || !selectedIds.length) return;
+
+  const idSet = new Set(selectedIds);
+
+  // centre moyen de la sélection
+  let sumX = 0, sumY = 0, n = 0;
+  for (const o of room.objects) {
+    if (!idSet.has(o.id)) continue;
+    sumX += o.xM;
+    sumY += o.yM;
+    n++;
+  }
+  if (!n) return;
+
+  const selCx = sumX / n;
+  const selCy = sumY / n;
+
+  // tolérance d'alignement (en mètres)
+  const epsilonM = 0.05; // ≈ 5 cm
+  let bestDx = epsilonM;
+  let bestDy = epsilonM;
+
+  for (const o of room.objects) {
+    if (idSet.has(o.id)) continue; // on ne se compare pas à soi-même
+
+    const dx = Math.abs(o.xM - selCx);
+    if (dx < bestDx) {
+      bestDx = dx;
+      alignmentGuideX = o.xM; // on aligne sur le centre X de cet objet
+    }
+
+    const dy = Math.abs(o.yM - selCy);
+    if (dy < bestDy) {
+      bestDy = dy;
+      alignmentGuideY = o.yM; // on aligne sur le centre Y de cet objet
+    }
+  }
+}
+
+
+
+// options = { multi: bool }  => multi = Ctrl+clic
+function selectObject(obj, options = {}) {
+  const { multi = false } = options;
+  const room = getCurrentRoom();
+
+  if (!obj) {
+    room.selectedObjectId  = null;
+    room.selectedObjectIds = [];
+    refreshSelectionUI();
+    draw();
+    return;
+  }
+
+  if (!multi) {
+    // sélection simple
+    room.selectedObjectId  = obj.id;
+    room.selectedObjectIds = [obj.id];
+  } else {
+    // sélection multiple (Ctrl+clic) : toggle
+    if (!Array.isArray(room.selectedObjectIds)) {
+      room.selectedObjectIds = [];
+    }
+    const idx = room.selectedObjectIds.indexOf(obj.id);
+    if (idx >= 0) {
+      room.selectedObjectIds.splice(idx, 1);
+    } else {
+      room.selectedObjectIds.push(obj.id);
+    }
+    if (room.selectedObjectIds.length === 0) {
+      room.selectedObjectId = null;
+    } else {
+      room.selectedObjectId = obj.id; // dernier cliqué = “actif”
+    }
+  }
+
+  refreshSelectionUI();
+  draw();
+}
+
+
+function deleteSelectedObject() {
+  if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+  if (interactionMode !== 'object') return;
+
+  const room = getCurrentRoom();
+  const ids = getSelectedObjectIds(room);
+  if (!ids.length) return;
+
+  pushUndoState();
+  const idSet = new Set(ids);
+  room.objects = room.objects.filter(o => !idSet.has(o.id));
+  room.selectedObjectId = null;
+  room.selectedObjectIds = [];
+  refreshSelectionUI();
+  draw();
+}
+
+    function deleteSelectedDisposition() {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+
+      if (!lastPlacedGroupInfo || !lastPlacedGroupInfo.groupId) {
+        setStatus("Aucune disposition sélectionnée à supprimer.");
+        return;
+      }
+
+      const groupId = lastPlacedGroupInfo.groupId;
+      const group = dispositionGroups[groupId];
+      if (!group || group.roomIndex !== currentRoomIndex) {
+        setStatus("Impossible de retrouver la disposition à supprimer.");
+        return;
+      }
+
+      const room = getCurrentRoom();
+      pushUndoState();
+
+      const idSet = new Set(group.ids);
+      room.objects = room.objects.filter(o => !idSet.has(o.id));
+
+      delete dispositionGroups[groupId];
+      if (activeGroupId === groupId) activeGroupId = null;
+      movingGroupActive = false;
+      lastPlacedGroupInfo = null;
+
+      draw();
+      setStatus("");
+    }
+
+    
+
+    // =========================
+    //  UNDO
+    // =========================
+
+function cloneState(room) {
+  return {
+    objects: room.objects.map(o => ({ ...o })),
+    selectedObjectId: room.selectedObjectId,
+    selectedObjectIds: room.selectedObjectIds ? [...room.selectedObjectIds] : []
+  };
+}
+
+    function pushUndoState() {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      room.undoStack.push(cloneState(room));
+      if (room.undoStack.length > 100) room.undoStack.shift();
+    }
+
+    function undo() {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      if (room.undoStack.length === 0) {
+        setStatus("Rien à annuler.");
+        return;
+      }
+      const prev = room.undoStack.pop();
+      room.objects         = prev.objects;
+      room.selectedObjectId= prev.selectedObjectId;
+room.selectedObjectIds = prev.selectedObjectIds || [];
+      refreshSelectionUI();
+      draw();
+      if (hasObjectsOutsideRoom(room.objects, room)) {
+        setStatus("Attention, un objet sort de l'image.");
+      } else {
+        setStatus("");
+      }
+    }
+
+    // =========================
+    //  CRÉATION OBJETS & DISPOSITIONS
+    // =========================
+
+    function createObjectAt(xPx, yPx) {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room   = getCurrentRoom();
+      const type   = objectTypeSelect.value;
+      const posM   = metersFromPixels(xPx, yPx);
+      const size   = getObjectSize(type);
+      const wM     = size.wM;
+      const hM     = size.hM;
+
+      pushUndoState();
+      const obj = {
+        id: room.nextObjectId++,
+        type,
+        xM: posM.xM,
+        yM: posM.yM,
+        wM,
+        hM,
+        angleDeg: 0
+      };
+
+      const objectOutsideRoom = !isObjectInsideRoom(obj, room);
+
+      if (preventOverlap && wouldOverlapAny([obj], room.objects)) {
+        room.undoStack.pop();
+        setStatus("Placement impossible : chevauchement.");
+        return;
+      }
+
+      room.objects.push(obj);
+      selectObject(obj);
+      if (objectOutsideRoom) {
+        setStatus("Attention, un objet sort de l'image.");
+      }
+    }
+
+    function placeTemplateAt(tpl, clickXM, clickYM) {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      if (!tpl || !tpl.objects || tpl.objects.length === 0) {
+        setStatus("La disposition sélectionnée est vide.");
+        return;
+      }
+
+      let anchorObj = null;
+      let minY = Infinity;
+      for (const o of tpl.objects) {
+        if (o.yM < minY) {
+          minY = o.yM;
+          anchorObj = o;
+        }
+      }
+      if (!anchorObj) {
+        setStatus("Impossible de déterminer l'objet d'ancrage.");
+        return;
+      }
+
+      const angleRad = templatePlacementAngleDeg * Math.PI / 180;
+      const cosA     = Math.cos(angleRad);
+      const sinA     = Math.sin(angleRad);
+
+      const candidateObjects = [];
+      for (const o of tpl.objects) {
+        const relX = o.xM - anchorObj.xM;
+        const relY = o.yM - anchorObj.yM;
+        const rotX = relX * cosA - relY * sinA;
+        const rotY = relX * sinA + relY * cosA;
+
+        candidateObjects.push({
+          type: o.type,
+          xM: clickXM + rotX,
+          yM: clickYM + rotY,
+          wM: o.wM,
+          hM: o.hM,
+          angleDeg: (o.angleDeg + templatePlacementAngleDeg) % 360
+        });
+      }
+
+      const objectsOutsideRoom = hasObjectsOutsideRoom(candidateObjects, room);
+
+      if (preventOverlap && wouldOverlapAny(candidateObjects, room.objects)) {
+        setStatus("Placement impossible : chevauchement.");
+        return;
+      }
+
+      pushUndoState();
+
+      const placedIds = [];
+      const groupId   = nextGroupId++;
+
+      for (const candidate of candidateObjects) {
+        const newObj = {
+          id: room.nextObjectId++,
+          type: candidate.type,
+          xM: candidate.xM,
+          yM: candidate.yM,
+          wM: candidate.wM,
+          hM: candidate.hM,
+          angleDeg: candidate.angleDeg,
+          groupId: groupId
+        };
+        room.objects.push(newObj);
+        placedIds.push(newObj.id);
+      }
+
+      dispositionGroups[groupId] = {
+        roomIndex: currentRoomIndex,
+        ids: placedIds,
+        templateName: tpl.name
+      };
+
+      tpl.lastAngleDeg = templatePlacementAngleDeg;
+      saveTemplatesToStorage();
+
+      lastPlacedGroupInfo = {
+        groupId,
+        roomIndex: currentRoomIndex,
+        templateName: tpl.name,
+        angleDeg: templatePlacementAngleDeg
+      };
+
+const room2 = getCurrentRoom();
+room2.selectedObjectId = null;
+room2.selectedObjectIds = [];
+refreshSelectionUI();
+draw();
+      const idSet = new Set(placedIds);
+      const placedObjects = room.objects.filter(o => idSet.has(o.id));
+      if (hasObjectsOutsideRoom(placedObjects, room)) {
+        setStatus("Attention, un objet sort de l'image.");
+      } else {
+        setStatus("");
+      }
+    }
+
+    function rotateLastGroup(deltaDeg) {
+      if (!lastPlacedGroupInfo || !lastPlacedGroupInfo.groupId) {
+        setStatus("Aucune disposition sélectionnée à tourner.");
+        return;
+      }
+      const group = dispositionGroups[lastPlacedGroupInfo.groupId];
+      if (!group || !group.ids || group.ids.length === 0) {
+        setStatus("Impossible de retrouver la disposition.");
+        return;
+      }
+      if (group.roomIndex !== currentRoomIndex) {
+        setStatus("La disposition sélectionnée est dans une autre salle.");
+        return;
+      }
+
+      const room = getCurrentRoom();
+      const idSet = new Set(group.ids);
+      const groupObjs = room.objects.filter(o => idSet.has(o.id));
+
+      if (groupObjs.length === 0) {
+        setStatus("Impossible de retrouver la disposition.");
+        return;
+      }
+
+      let sumX = 0, sumY = 0;
+      for (const o of groupObjs) {
+        sumX += o.xM;
+        sumY += o.yM;
+      }
+      const cx = sumX / groupObjs.length;
+      const cy = sumY / groupObjs.length;
+
+      const angleRad = deltaDeg * Math.PI / 180;
+      const cosA = Math.cos(angleRad);
+      const sinA = Math.sin(angleRad);
+
+      const rotatedCandidates = groupObjs.map(o => {
+        const dx = o.xM - cx;
+        const dy = o.yM - cy;
+        const rx = dx * cosA - dy * sinA;
+        const ry = dx * sinA + dy * cosA;
+        let angleDeg = (o.angleDeg + deltaDeg) % 360;
+        if (angleDeg < 0) angleDeg += 360;
+        return {
+          ...o,
+          xM: cx + rx,
+          yM: cy + ry,
+          angleDeg
+        };
+      });
+
+      const objectsOutsideRoom = hasObjectsOutsideRoom(rotatedCandidates, room);
+
+      if (preventOverlap && wouldOverlapAny(rotatedCandidates, room.objects, idSet)) {
+        setStatus("Rotation impossible : chevauchement.");
+        return;
+      }
+
+      pushUndoState();
+
+      for (let i = 0; i < groupObjs.length; i++) {
+        groupObjs[i].xM = rotatedCandidates[i].xM;
+        groupObjs[i].yM = rotatedCandidates[i].yM;
+        groupObjs[i].angleDeg = rotatedCandidates[i].angleDeg;
+      }
+
+      let newAngle = (lastPlacedGroupInfo.angleDeg ?? 0) + deltaDeg;
+      newAngle %= 360;
+      if (newAngle < 0) newAngle += 360;
+      lastPlacedGroupInfo.angleDeg = newAngle;
+
+      if (lastPlacedGroupInfo.templateName) {
+        const tpl = templates.find(t => t.name === lastPlacedGroupInfo.templateName);
+        if (tpl) {
+          tpl.lastAngleDeg = newAngle;
+          saveTemplatesToStorage();
+        }
+      }
+
+      if (
+        currentPlacementTemplate &&
+        lastPlacedGroupInfo.templateName &&
+        currentPlacementTemplate.name === lastPlacedGroupInfo.templateName
+      ) {
+        templatePlacementAngleDeg = newAngle;
+      }
+
+      draw();
+      if (objectsOutsideRoom) {
+        setStatus("Attention, un objet sort de l'image.");
+      } else {
+        setStatus("");
+      }
+    }
+
+    // =========================
+    //  PARAMÈTRES DIVERS (UI)
+    // =========================
+
+    function refreshParamsUI() {
+      if (!paramsPanelDiv || currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      const params = ensureRoomParams(room);
+
+      FIXED_PARAMS.forEach(cfg => {
+        const val = params[cfg.key] === 'oui' ? 'oui' : 'non';
+        const radios = paramsPanelDiv.querySelectorAll('input[name="' + cfg.radioName + '"]');
+        radios.forEach(r => {
+          r.checked = (r.value === val);
+        });
+      });
+
+      let parVal = 'na';
+      if (params.parois === 'ouverte' || params.parois === 'fermée' || params.parois === 'na') {
+        parVal = params.parois;
+      }
+      const parRadios = paramsPanelDiv.querySelectorAll('input[name="param-parois"]');
+      parRadios.forEach(r => {
+        r.checked = (r.value === parVal);
+      });
+
+      if (!extraParamsListDiv) return;
+      extraParamsListDiv.innerHTML = '';
+      params.others.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'param-row';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = item.label || ('Élément ' + (idx + 1));
+
+        const controls = document.createElement('div');
+        controls.className = 'param-controls';
+
+        if (item.value !== 'always') {
+          const select = document.createElement('select');
+          select.className = 'param-extra-select';
+          select.dataset.index = String(idx);
+          ['oui', 'non'].forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+          });
+          select.value = item.value === 'oui' ? 'oui' : 'non';
+          controls.appendChild(select);
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.textContent = '✕';
+        delBtn.className = 'param-extra-remove';
+        delBtn.dataset.index = String(idx);
+
+        controls.appendChild(delBtn);
+
+        row.appendChild(labelSpan);
+        row.appendChild(controls);
+        extraParamsListDiv.appendChild(row);
+      });
+
+      if (eventTitleInput)      eventTitleInput.value      = params.event.title  || '';
+      if (eventDateInput)       eventDateInput.value       = params.event.date   || '';
+      if (eventStartInput)      eventStartInput.value      = params.event.start  || '';
+      if (eventEndInput)        eventEndInput.value        = params.event.end    || '';
+      if (eventBufferInput)     eventBufferInput.value     = params.event.buffer || '';
+      if (eventReadyInput)      eventReadyInput.value      = params.event.ready  || '';
+      if (eventRemarksTextarea) eventRemarksTextarea.value = params.remarks      || '';
+    }
+
+    // =========================
+    //  SOURIS & INTERACTION
+    // =========================
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect       = canvas.getBoundingClientRect();
+      const scaleRectX = canvas.width  / rect.width;
+      const scaleRectY = canvas.height / rect.height;
+      const xPx        = (e.clientX - rect.left) * scaleRectX;
+      const yPx        = (e.clientY - rect.top)  * scaleRectY;
+
+      mouseDown    = true;
+      dragStarted  = false;
+      mouseDownPos = { xPx, yPx };
+
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+
+      if (interactionMode === 'dispo') {
+        const clicked = findObjectAtPixel(xPx, yPx);
+        mouseDownOnObject = clicked;
+
+        if (clicked && typeof clicked.groupId === 'number') {
+          const group = dispositionGroups[clicked.groupId];
+          if (group && group.roomIndex === currentRoomIndex) {
+            lastPlacedGroupInfo = {
+              groupId: clicked.groupId,
+              roomIndex: currentRoomIndex,
+              templateName: group.templateName || null,
+              angleDeg: lastPlacedGroupInfo && lastPlacedGroupInfo.groupId === clicked.groupId
+                        ? lastPlacedGroupInfo.angleDeg
+                        : (lastPlacedGroupInfo ? lastPlacedGroupInfo.angleDeg : 0)
+            };
+
+            pushUndoState();
+            const posM = metersFromPixels(xPx, yPx);
+            groupLastMouseXM = posM.xM;
+            groupLastMouseYM = posM.yM;
+            activeGroupId     = clicked.groupId;
+            movingGroupActive = true;
+            setStatus("");
+            return;
+          }
+        }
+
+        isDragging = false;
+        return;
+      }
+
+const obj = findObjectAtPixel(xPx, yPx);
+mouseDownOnObject = obj;
+
+if (obj) {
+  const multi = e.ctrlKey || e.metaKey;   // Ctrl+clic => multi-sélection
+  pushUndoState();
+  selectObject(obj, { multi });
+
+  const room = getCurrentRoom();
+  const stillSelected =
+    (room.selectedObjectId === obj.id) ||
+    (room.selectedObjectIds && room.selectedObjectIds.includes(obj.id));
+
+  if (stillSelected) {
+    isDragging = true;
+    const posM = metersFromPixels(xPx, yPx);
+    lastMouseXM = posM.xM;
+    lastMouseYM = posM.yM;
+  } else {
+    // objet désélectionné par toggle => pas de drag
+    isDragging = false;
+  }
+} else {
+  isDragging = false;
+}
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!mouseDown) return;
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+
+      const rect       = canvas.getBoundingClientRect();
+      const scaleRectX = canvas.width  / rect.width;
+      const scaleRectY = canvas.height / rect.height;
+      const xPx        = (e.clientX - rect.left) * scaleRectX;
+      const yPx        = (e.clientY - rect.top)  * scaleRectY;
+
+      const moveDistPix = Math.hypot(xPx - mouseDownPos.xPx, yPx - mouseDownPos.yPx);
+      if (moveDistPix > 3) dragStarted = true;
+
+      if (movingGroupActive && activeGroupId != null) {
+        const group = dispositionGroups[activeGroupId];
+        if (!group || !group.ids || group.roomIndex !== currentRoomIndex) {
+          movingGroupActive = false;
+        } else {
+          const posM = metersFromPixels(xPx, yPx);
+          const dx   = posM.xM - groupLastMouseXM;
+          const dy   = posM.yM - groupLastMouseYM;
+
+          if (dx !== 0 || dy !== 0) {
+            const room = getCurrentRoom();
+            const idSet = new Set(group.ids);
+            const candidates = room.objects
+              .filter(o => idSet.has(o.id))
+              .map(o => ({ ...o, xM: o.xM + dx, yM: o.yM + dy }));
+
+            const objectsOutsideRoom = hasObjectsOutsideRoom(candidates, room);
+            if (!preventOverlap || !wouldOverlapAny(candidates, room.objects, idSet)) {
+              for (const o of room.objects) {
+                if (!idSet.has(o.id)) continue;
+                o.xM += dx;
+                o.yM += dy;
+              }
+              groupLastMouseXM = posM.xM;
+              groupLastMouseYM = posM.yM;
+              if (objectsOutsideRoom) {
+                setStatus("Attention, un objet sort de l'image.");
+              } else {
+                setStatus('');
+              }
+              draw();
+            }
+          }
+          return;
+        }
+      }
+
+if (interactionMode === 'object') {
+  const room   = getCurrentRoom();
+  const selIds = getSelectedObjectIds(room);
+
+  if (isDragging && selIds.length) {
+    const posM = metersFromPixels(xPx, yPx);
+    const dx   = posM.xM - lastMouseXM;
+    const dy   = posM.yM - lastMouseYM;
+
+    if (dx !== 0 || dy !== 0) {
+      const idSet = new Set(selIds);
+      const candidates = room.objects
+        .filter(o => idSet.has(o.id))
+        .map(o => ({ ...o, xM: o.xM + dx, yM: o.yM + dy }));
+
+      const objectsOutsideRoom = hasObjectsOutsideRoom(candidates, room);
+      if (!preventOverlap || !wouldOverlapAny(candidates, room.objects, idSet)) {
+        for (const o of room.objects) {
+          if (!idSet.has(o.id)) continue;
+          o.xM += dx;
+          o.yM += dy;
+        }
+        lastMouseXM = posM.xM;
+        lastMouseYM = posM.yM;
+
+        // calcul / mise à jour des guides d'alignement
+        updateAlignmentGuides(room, selIds);
+
+        if (objectsOutsideRoom) {
+          setStatus("Attention, un objet sort de l'image.");
+        } else {
+          setStatus('');
+        }
+
+        draw();
+      }
+    }
+  } else {
+    // pas de drag actif : pas de guides
+    if (alignmentGuideX != null || alignmentGuideY != null) {
+      alignmentGuideX = null;
+      alignmentGuideY = null;
+      draw();
+    }
+  }
+}
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (!mouseDown) return;
+
+      const rect       = canvas.getBoundingClientRect();
+      const scaleRectX = canvas.width  / rect.width;
+      const scaleRectY = canvas.height / rect.height;
+      const xPx        = (e.clientX - rect.left) * scaleRectX;
+      const yPx        = (e.clientY - rect.top)  * scaleRectY;
+
+      if (movingGroupActive) {
+        const finalGroupId = activeGroupId;
+        movingGroupActive   = false;
+        activeGroupId       = null;
+
+        if (finalGroupId != null) {
+          const room = getCurrentRoom();
+          const group = dispositionGroups[finalGroupId];
+          if (room && group && group.ids && group.roomIndex === currentRoomIndex) {
+            const idSet = new Set(group.ids);
+            const currentObjects = room.objects.filter(o => idSet.has(o.id));
+            if (hasObjectsOutsideRoom(currentObjects, room)) {
+              setStatus("Attention, un objet sort de l'image.");
+            } else {
+              setStatus("");
+            }
+          } else {
+            setStatus("");
+          }
+        } else {
+          setStatus("");
+        }
+
+        mouseDown        = false;
+        isDragging       = false;
+        mouseDownOnObject= null;
+        dragStarted      = false;
+        return;
+      }
+
+      if (!dragStarted && !mouseDownOnObject) {
+        if (currentPageIndex !== 0 && currentPageIndex !== MANUAL_PAGE_INDEX) {
+          if (placingTemplate && currentPlacementTemplate) {
+            const posM = metersFromPixels(xPx, yPx);
+            placeTemplateAt(currentPlacementTemplate, posM.xM, posM.yM);
+          } else if (interactionMode === 'object') {
+            createObjectAt(xPx, yPx);
+          }
+        }
+      }
+
+         mouseDown        = false;
+      isDragging       = false;
+      mouseDownOnObject= null;
+      dragStarted      = false;
+
+      alignmentGuideX = null;
+      alignmentGuideY = null;
+      draw();
+
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (movingGroupActive) {
+        movingGroupActive   = false;
+        activeGroupId       = null;
+      }
+      mouseDown        = false;
+      isDragging       = false;
+      mouseDownOnObject= null;
+      dragStarted      = false;
+
+      alignmentGuideX = null;
+      alignmentGuideY = null;
+      draw();
+    });
+
+    // =========================
+    //  BOUTONS & FORMULAIRES
+    // =========================
+
+    preventOverlapCheckbox?.addEventListener('change', () => {
+      preventOverlap = !!preventOverlapCheckbox.checked;
+      try {
+        localStorage.setItem('preventOverlap', preventOverlap ? 'true' : 'false');
+      } catch {}
+      setStatus("");
+    });
+
+    panelLayoutBtn?.addEventListener('click', () => {
+      editorPanelMode = 'layout';
+      updateEditorPanelModeUI();
+      setStatus('');
+    });
+
+    panelParamsBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Choisir une salle pour voir les paramètres.");
+        return;
+      }
+      editorPanelMode = 'params';
+      updateEditorPanelModeUI();
+      setStatus('');
+    });
+
+    modeObjectBtn?.addEventListener('click', () => {
+      interactionMode = 'object';
+      placingTemplate          = false;
+      currentPlacementTemplate = null;
+      templatePlacementAngleDeg= 0;
+      movingGroupActive        = false;
+      activeGroupId            = null;
+      updateModeUI();
+      setStatus("");
+    });
+
+    modeDispoBtn?.addEventListener('click', () => {
+  interactionMode = 'dispo';
+  const room = getCurrentRoom();
+  room.selectedObjectId = null;
+  room.selectedObjectIds = [];
+  refreshSelectionUI();
+      movingGroupActive = false;
+      activeGroupId     = null;
+      updateModeUI();
+      setStatus("");
+    });
+
+    applyRoomSizeBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      if (currentRoomIndex < 12 || currentRoomIndex > 14) {
+        setStatus("Largeur fixe pour cette salle.");
+        return;
+      }
+      updateScale();
+      setStatus("");
+    });
+
+    clearRoomObjectsBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      if (room.objects.length === 0) {
+        setStatus("La salle est déjà vide.");
+        return;
+      }
+      pushUndoState();
+      room.objects         = [];
+      room.selectedObjectId= null;
+room.selectedObjectIds = [];
+
+      for (const gid in dispositionGroups) {
+        if (dispositionGroups[gid].roomIndex === currentRoomIndex) {
+          delete dispositionGroups[gid];
+        }
+      }
+      lastPlacedGroupInfo = null;
+      movingGroupActive   = false;
+      activeGroupId       = null;
+
+      refreshSelectionUI();
+      draw();
+      setStatus("");
+    });
+
+    roomImageInput?.addEventListener('change', (e) => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Choisir d'abord une salle (page 1 à 15).");
+        roomImageInput.value = '';
+        return;
+      }
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const roomIndex = currentRoomIndex;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const dataURL = evt.target.result;
+        const img = new Image();
+        img.onload = function() {
+          const room = rooms[roomIndex];
+          room.backgroundImage = img;
+          room.imageLoaded     = true;
+          try { localStorage.setItem(roomImageKey(roomIndex), dataURL); } catch {}
+          if (roomIndex === currentRoomIndex && currentPageIndex !== 0 && currentPageIndex !== MANUAL_PAGE_INDEX) {
+            canvas.width  = img.width;
+            canvas.height = img.height;
+            updateScale();
+            draw();
+          }
+          setStatus("");
+        };
+        img.src = dataURL;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function rotateSelectedObjects(deltaDeg) {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      if (interactionMode !== 'object') return;
+      const room = getCurrentRoom();
+      const selectedIds = getSelectedObjectIds(room);
+      if (!selectedIds.length) return;
+
+      const idSet = new Set(selectedIds);
+      const selectedObjects = room.objects.filter(o => idSet.has(o.id));
+      const rotatedCandidates = selectedObjects.map(o => {
+        let angleDeg = (o.angleDeg + deltaDeg) % 360;
+        if (angleDeg < 0) angleDeg += 360;
+        return { ...o, angleDeg };
+      });
+
+      if (preventOverlap && wouldOverlapAny(rotatedCandidates, room.objects, idSet)) {
+        setStatus("Rotation impossible : chevauchement.");
+        return;
+      }
+
+      pushUndoState();
+      for (let i = 0; i < selectedObjects.length; i++) {
+        selectedObjects[i].angleDeg = rotatedCandidates[i].angleDeg;
+      }
+      draw();
+    }
+
+    rotateMinusBtn?.addEventListener('click', () => {
+      rotateSelectedObjects(-5);
+    });
+
+    rotatePlusBtn?.addEventListener('click', () => {
+      rotateSelectedObjects(5);
+    });
+
+    rotate90Btn?.addEventListener('click', () => {
+      rotateSelectedObjects(90);
+    });
+
+    deleteObjectBtn?.addEventListener('click', () => {
+      deleteSelectedObject();
+    });
+
+    exportImageBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0) {
+        setStatus("Utiliser le bouton « Exporter la légende en PNG » pour la page 0.");
+        return;
+      }
+      if (currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Rien à exporter depuis la page de mode d'emploi.");
+        return;
+      }
+      const room = getCurrentRoom();
+      const dataURL = canvas.toDataURL('image/png');
+      const name    = room.name.replace(/\s+/g, '_') + '_plan.png';
+
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setStatus("");
+    });
+
+    exportLegendBtn?.addEventListener('click', () => {
+  const img = window.legendImage00 || new Image();
+  img.src = "00.png";
+
+  img.onload = () => {
+    const off = document.createElement('canvas');
+    off.width = img.width;
+    off.height = img.height;
+    const c = off.getContext('2d');
+    c.drawImage(img, 0, 0);
+
+    const link = document.createElement('a');
+    link.href = off.toDataURL('image/png');
+    link.download = 'legende_objets.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+});
+
+
+    exportTemplatesBtn?.addEventListener('click', () => {
+      if (!templates || templates.length === 0) {
+        setStatus("Aucune disposition à exporter.");
+        return;
+      }
+      try {
+        const dataStr = JSON.stringify(templates, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const date = new Date();
+        const stamp = date.toISOString().slice(0,10).replace(/-/g,'');
+        link.href = url;
+        link.download = 'dispositions_salles_' + stamp + '.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setStatus("Dispositions exportées (fichier JSON téléchargé).");
+      } catch (e) {
+        setStatus("Erreur lors de l'export des dispositions.");
+      }
+    });
+
+    importTemplatesBtn?.addEventListener('click', () => {
+      if (!importTemplatesInput) return;
+      importTemplatesInput.value = '';
+      importTemplatesInput.click();
+    });
+
+    importTemplatesInput?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        setStatus("Aucun fichier sélectionné.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const raw = evt.target.result;
+          const imported = JSON.parse(raw);
+
+          if (!Array.isArray(imported)) {
+            setStatus("Fichier invalide : format inattendu (array attendu).");
+            return;
+          }
+
+          let countAdded = 0;
+
+          imported.forEach((tpl) => {
+            if (!tpl || typeof tpl.name !== 'string' || !Array.isArray(tpl.objects)) {
+              return;
+            }
+
+            const baseName = tpl.name.trim() || 'Disposition importée';
+            let newName = baseName;
+            let suffix = 1;
+            while (templates.some(t => t.name === newName)) {
+              suffix++;
+              newName = baseName + ' (import ' + suffix + ')';
+            }
+
+            const cleanedObjects = tpl.objects.map(o => {
+              if (!o || typeof o.type !== 'string') return null;
+              const size = getObjectSize(o.type);
+              return {
+                type: o.type,
+                xM: typeof o.xM === 'number' ? o.xM : 0,
+                yM: typeof o.yM === 'number' ? o.yM : 0,
+                wM: typeof o.wM === 'number' ? o.wM : size.wM,
+                hM: typeof o.hM === 'number' ? o.hM : size.hM,
+                angleDeg: typeof o.angleDeg === 'number' ? o.angleDeg : 0
+              };
+            }).filter(Boolean);
+
+            if (cleanedObjects.length === 0) return;
+
+            templates.push({
+              name: newName,
+              objects: cleanedObjects,
+              lastAngleDeg: typeof tpl.lastAngleDeg === 'number' ? tpl.lastAngleDeg : 0
+            });
+            countAdded++;
+          });
+
+          if (countAdded === 0) {
+            setStatus("Aucune disposition valide trouvée dans le fichier.");
+            return;
+          }
+
+          saveTemplatesToStorage();
+          refreshTemplateSelect();
+          setStatus("");
+        } catch (err) {
+          setStatus("Erreur lors de la lecture du fichier de dispositions.");
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+
+
+    importRoomBtn?.addEventListener('click', () => {
+      if (!importRoomInput) return;
+      importRoomInput.value = '';
+      importRoomInput.click();
+    });
+
+    function normalizeImportedRoomObject(o, room, nextId) {
+      if (!o || typeof o.type !== 'string') return null;
+      const size = getObjectSize(o.type);
+      let angleDeg = typeof o.angleDeg === 'number' ? o.angleDeg : 0;
+      angleDeg = ((angleDeg % 360) + 360) % 360;
+      return {
+        id: nextId,
+        type: o.type,
+        xM: typeof o.xM === 'number' ? o.xM : 0,
+        yM: typeof o.yM === 'number' ? o.yM : 0,
+        wM: typeof o.wM === 'number' ? o.wM : size.wM,
+        hM: typeof o.hM === 'number' ? o.hM : size.hM,
+        angleDeg
+      };
+    }
+
+    importRoomInput?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        setStatus("Aucun fichier sélectionné.");
+        return;
+      }
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Ouvrir d'abord une page de salle pour importer ce fichier.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const raw = evt.target.result;
+          const imported = JSON.parse(raw);
+
+          if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+            setStatus("Fichier invalide : format de salle attendu.");
+            return;
+          }
+
+          if (!Array.isArray(imported.objects)) {
+            setStatus("Fichier invalide : la clé objects est absente ou invalide.");
+            return;
+          }
+
+          const room = getCurrentRoom();
+          const cleanedObjects = [];
+          let nextId = 1;
+          for (const obj of imported.objects) {
+            const normalized = normalizeImportedRoomObject(obj, room, nextId);
+            if (!normalized) continue;
+            cleanedObjects.push(normalized);
+            nextId++;
+          }
+
+          pushUndoState();
+          room.objects = cleanedObjects;
+          room.nextObjectId = nextId;
+          room.selectedObjectId = null;
+          room.selectedObjectIds = [];
+          room.dragGroup = null;
+
+          for (const gid in dispositionGroups) {
+            if (dispositionGroups[gid].roomIndex === currentRoomIndex) {
+              delete dispositionGroups[gid];
+            }
+          }
+          activeGroupId = null;
+          lastPlacedGroupInfo = null;
+
+          refreshSelectionUI();
+          draw();
+
+          const importedName = (typeof imported.roomName === 'string' && imported.roomName.trim())
+            ? imported.roomName.trim()
+            : ((typeof imported.title === 'string' && imported.title.trim()) ? imported.title.trim() : file.name);
+          setStatus("");
+        } catch (err) {
+          setStatus("Erreur lors de la lecture du fichier de salle.");
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+
+// Formatage des dates en JJ/MM/AAAA
+function formatDateFR(isoDate) {
+  if (!isoDate) return '';
+  const parts = isoDate.split('-');
+  if (parts.length !== 3) return isoDate;
+  const [y, m, d] = parts;
+  return d + '/' + m + '/' + y;
+}
+
+// Formatage des datetime-local en JJ/MM/AAAA HH:MM
+function formatDateTimeFR(isoDateTime) {
+  if (!isoDateTime) return '';
+  const [datePart, timePart] = isoDateTime.split('T');
+  const dateStr = formatDateFR(datePart);
+  if (!timePart) return dateStr;
+  const hhmm = timePart.slice(0, 5); // HH:MM
+  return dateStr + ' ' + hhmm;
+}
+
+
+    exportParamsPngBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Choisir une salle pour exporter salle + paramètres.");
+        return;
+      }
+      const room = getCurrentRoom();
+      const params = ensureRoomParams(room);
+      const ev = params.event || {};
+
+      const outW = 3508;
+      const outH = 2480;
+      const off = document.createElement('canvas');
+      off.width = outW;
+      off.height = outH;
+      const c2 = off.getContext('2d');
+
+      c2.fillStyle = '#ffffff';
+      c2.fillRect(0, 0, outW, outH);
+
+      c2.fillStyle = '#000000';
+      c2.font = '42px sans-serif';
+      c2.textAlign = 'left';
+      c2.textBaseline = 'top';
+      const title = 'Salle : ' + room.name;
+      c2.fillText(title, 80, 40);
+
+      const planMarginLeft = 80;
+      const planMarginTop  = 120;
+      const planMaxW = 2100;
+      const planMaxH = 2000;
+
+      const srcW = canvas.width;
+      const srcH = canvas.height;
+      let scalePlan = 1;
+      if (srcW > 0 && srcH > 0) {
+        scalePlan = Math.min(planMaxW / srcW, planMaxH / srcH);
+      }
+      const drawW = srcW * scalePlan;
+      const drawH = srcH * scalePlan;
+      const drawX = planMarginLeft;
+      const drawY = planMarginTop;
+
+      c2.fillStyle = '#e0e0e0';
+      c2.fillRect(drawX - 10, drawY - 10, drawW + 20, drawH + 20);
+      if (srcW > 0 && srcH > 0) {
+        c2.drawImage(canvas, drawX, drawY, drawW, drawH);
+      }
+
+      const paramsX = 80 + planMaxW + 80;
+      let paramsY = 120;
+
+      c2.fillStyle = '#000000';
+      c2.textAlign = 'left';
+      c2.textBaseline = 'top';
+
+      function drawLine(label, value) {
+        const textValue = (value != null) ? String(value).trim() : '';
+        if (!textValue.length) return;
+
+        const fs = 60;
+        const gap = 76;
+        c2.font = fs + 'px sans-serif';
+
+        const txt = label + ' : ' + textValue;
+        c2.fillText(txt, paramsX, paramsY);
+        paramsY += gap;
+      }
+
+   const infoLines = [
+  ['Groupe / événement',   ev.title  || ''],
+  ["Date de l'événement",  formatDateFR(ev.date || '')],
+  ['Heure de début',       ev.start  || ''],
+  ['Heure de fin',         ev.end    || ''],
+  ['Minutes de battement', ev.buffer || ''],
+  ['Prêt pour',            formatDateTimeFR(ev.ready || '')]
+];
+
+
+      const hasInfo = infoLines.some(([_, v]) => v && String(v).trim().length);
+
+      if (hasInfo) {
+        c2.font = '72px sans-serif';
+        c2.fillText('Infos événement', paramsX, paramsY);
+        paramsY += 86;
+
+        infoLines.forEach(([label, value]) => {
+          drawLine(label, value);
+        });
+
+        paramsY += 80;
+      }
+
+      const techLines = [];
+
+      if (params.screen === 'oui')     techLines.push(['Écran', 'Oui']);
+      if (params.flipchart === 'oui')  techLines.push(['Flipchart', 'Oui']);
+      if (params.micro === 'oui')      techLines.push(['Micro', 'Oui']);
+      if (params.multiprise === 'oui') techLines.push(['Multiprise', 'Oui']);
+      if (params.upLighters === 'oui') techLines.push(['Up-lighters', 'Oui']);
+
+      let paroisTxt = '';
+      if (params.parois === 'ouverte') {
+        paroisTxt = 'Ouverte';
+      } else if (params.parois === 'fermée') {
+        paroisTxt = 'Fermée';
+      }
+
+      if (paroisTxt) {
+        techLines.push(['Parois', paroisTxt]);
+      }
+
+      if (techLines.length) {
+        c2.font = '72px sans-serif';
+        c2.fillText('Paramètres divers', paramsX, paramsY);
+        paramsY += 86;
+
+        techLines.forEach(([label, value]) => {
+          drawLine(label, value);
+        });
+      }
+
+      if (params.others && params.others.length) {
+  const othersList = params.others;
+
+  paramsY += 80;
+  c2.font = '72px sans-serif';
+  c2.fillText('Autres éléments', paramsX, paramsY);
+  paramsY += 80;
+
+  // Tous les éléments ajoutés apparaissent systématiquement
+  othersList.forEach((it) => {
+    const label = it.label || 'Élément';
+    const val = 'Oui'; // ou autre texte si tu préfères
+    drawLine(label, val);
+  });
+}
+
+
+      const objectCounts = {};
+      if (room.objects && Array.isArray(room.objects)) {
+        room.objects.forEach((o) => {
+          if (!o || !o.type) return;
+          objectCounts[o.type] = (objectCounts[o.type] || 0) + 1;
+        });
+      }
+
+      const presentTypes = objectLegend.filter(item => objectCounts[item.type]);
+
+      if (presentTypes.length) {
+        paramsY += 80;
+        c2.font = '72px sans-serif';
+        c2.fillText('Objets sur le plan', paramsX, paramsY);
+        paramsY += 80;
+
+        const rowHeight = 90;
+        const iconScale = 40;
+        const textOffsetX = 140;
+
+        presentTypes.forEach((item) => {
+          const count = objectCounts[item.type];
+          const centerY = paramsY + rowHeight / 2;
+          const iconCx = paramsX + 60;
+
+          const sz = getObjectSize(item.type);
+          const iconObj = {
+            type: item.type,
+            xM: iconCx / iconScale,
+            yM: centerY / iconScale,
+            wM: sz.wM,
+            hM: sz.hM,
+            angleDeg: 0
+          };
+
+          const prevIsLegend2 = isDrawingLegend;
+          isDrawingLegend = true;
+          internalDrawObject(c2, iconObj, iconScale, iconScale);
+          isDrawingLegend = prevIsLegend2;
+
+          c2.font = '60px sans-serif';
+          const label = item.label;
+          const txt   = label + ' × ' + count;
+          c2.fillText(txt, paramsX + textOffsetX, paramsY + (rowHeight - 60) / 2);
+
+          paramsY += rowHeight;
+        });
+      }
+
+      if (params.remarks && String(params.remarks).trim().length) {
+        paramsY += 80;
+        c2.font = '72px sans-serif';
+        c2.fillText('Remarques', paramsX, paramsY);
+        paramsY += 80;
+
+        const fsText  = 60;
+        const gapText = 76;
+        c2.font = fsText + 'px sans-serif';
+
+        const text  = String(params.remarks);
+        const lines = text.split(/\r?\n/);
+
+        lines.forEach(line => {
+          const t = line.trim();
+          const toDraw = t.length ? t : ' ';
+          c2.fillText(toDraw, paramsX, paramsY);
+          paramsY += gapText;
+        });
+      }
+
+      const dataURL = off.toDataURL('image/png');
+      const fileName = room.name.replace(/\s+/g, '_') + '_A4_salle_et_parametres.png';
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setStatus("");
+    });
+
+    function refreshTemplateSelect() {
+      if (!templateSelect) return;
+      templateSelect.innerHTML = '';
+      const optEmpty = document.createElement('option');
+      optEmpty.value = '';
+      optEmpty.textContent = '-- choisir --';
+      templateSelect.appendChild(optEmpty);
+      for (const tpl of templates) {
+        const opt = document.createElement('option');
+        opt.value = tpl.name;
+        opt.textContent = tpl.name;
+        templateSelect.appendChild(opt);
+      }
+    }
+
+    function loadTemplatesFromStorage() {
+      try {
+        const raw = localStorage.getItem('roomTemplates');
+        templates = raw ? JSON.parse(raw) : [];
+      } catch {
+        templates = [];
+      }
+      refreshTemplateSelect();
+    }
+
+    function saveTemplatesToStorage() {
+      try { localStorage.setItem('roomTemplates', JSON.stringify(templates)); }
+      catch {}
+    }
+
+
+    function formatSaveDate(date = new Date()) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return yyyy + '-' + mm + '-' + dd;
+    }
+
+    function sanitizeFileName(name) {
+      return String(name || 'salle')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9-_ ]+/g, '')
+        .trim()
+        .replace(/\s+/g, '_') || 'salle';
+    }
+
+    templateSaveBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      const name = (templateNameInput.value || '').trim() || ('Disposition ' + (templates.length + 1));
+      const clonedObjects = room.objects.map(o => ({ ...o }));
+      const existingIndex = templates.findIndex(t => t.name === name);
+
+      if (existingIndex >= 0) {
+        const prevAngle = templates[existingIndex].lastAngleDeg;
+        templates[existingIndex].objects      = clonedObjects;
+        templates[existingIndex].lastAngleDeg = prevAngle ?? 0;
+      } else {
+        templates.push({ name, objects: clonedObjects, lastAngleDeg: 0 });
+      }
+      saveTemplatesToStorage();
+      refreshTemplateSelect();
+      setStatus("");
+    });
+
+
+    saveRoomLayoutBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Choisir une salle à sauvegarder.");
+        return;
+      }
+
+      const room = getCurrentRoom();
+      const savedAt = new Date();
+      const savedDate = formatSaveDate(savedAt);
+      const title = room.name + ' - ' + savedDate;
+      const payload = {
+        title,
+        roomName: room.name,
+        savedAt: savedAt.toISOString(),
+        objects: room.objects.map(o => ({ ...o }))
+      };
+
+      try {
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = sanitizeFileName(room.name) + '_' + savedDate + '.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setStatus("");
+      } catch (e) {
+        setStatus("Erreur lors de la sauvegarde de la salle.");
+      }
+    });
+
+    document.getElementById('deleteTemplate')?.addEventListener('click', () => {
+      const name = templateSelect.value;
+      if (!name) {
+        setStatus("Choisir d'abord un modèle à supprimer.");
+        return;
+      }
+      if (!confirm('Effacer définitivement le modèle "' + name + '" ?')) return;
+      templates = templates.filter(t => t.name !== name);
+      if (currentPlacementTemplate && currentPlacementTemplate.name === name) {
+        placingTemplate          = false;
+        currentPlacementTemplate = null;
+        templatePlacementAngleDeg= 0;
+      }
+      saveTemplatesToStorage();
+      refreshTemplateSelect();
+      setStatus("");
+    });
+
+    templateSelect?.addEventListener('change', () => {
+      const name = templateSelect.value;
+
+      if (!name) {
+        placingTemplate          = false;
+        currentPlacementTemplate = null;
+        templatePlacementAngleDeg= 0;
+        setStatus("");
+        return;
+      }
+
+      const tpl = templates.find(t => t.name === name);
+      if (!tpl) {
+        placingTemplate          = false;
+        currentPlacementTemplate = null;
+        templatePlacementAngleDeg= 0;
+        setStatus("Disposition introuvable.");
+        return;
+      }
+
+      placingTemplate          = true;
+      currentPlacementTemplate = tpl;
+      templatePlacementAngleDeg= (typeof tpl.lastAngleDeg === 'number') ? tpl.lastAngleDeg : 0;
+
+      setStatus("");
+    });
+
+    rotateLastGroupMinusBtn?.addEventListener('click', () => {
+      rotateLastGroup(-5);
+    });
+    rotateLastGroupPlusBtn?.addEventListener('click', () => {
+      rotateLastGroup(5);
+    });
+    rotateLastGroup45Btn?.addEventListener('click', () => {
+      rotateLastGroup(45);
+    });
+
+    objectTypeSelect?.addEventListener('change', () => {
+      if (placingTemplate) {
+        placingTemplate          = false;
+        currentPlacementTemplate = null;
+        templatePlacementAngleDeg= 0;
+        setStatus("");
+      }
+    });
+
+    paramsPanelDiv?.addEventListener('change', (e) => {
+      const target = e.target;
+      if (!target || target.type !== 'radio') return;
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      const params = ensureRoomParams(room);
+
+      const name = target.name;
+      const value = target.value;
+
+      if (name === 'param-screen') {
+        params.screen = value === 'oui' ? 'oui' : 'non';
+      } else if (name === 'param-flipchart') {
+        params.flipchart = value === 'oui' ? 'oui' : 'non';
+      } else if (name === 'param-micro') {
+        params.micro = value === 'oui' ? 'oui' : 'non';
+      } else if (name === 'param-multiprise') {
+        params.multiprise = value === 'oui' ? 'oui' : 'non';
+      } else if (name === 'param-upLighters') {
+        params.upLighters = value === 'oui' ? 'oui' : 'non';
+      } else if (name === 'param-parois') {
+        if (value === 'ouverte' || value === 'fermée') {
+          params.parois = value;
+        } else {
+          params.parois = 'na';
+        }
+      }
+    });
+
+    addParamBtn?.addEventListener('click', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        setStatus("Choisir une salle pour ajouter des paramètres.");
+        return;
+      }
+      const label = (newParamLabelInput.value || '').trim();
+      if (!label) {
+        setStatus("Nom de l'élément vide.");
+        return;
+      }
+      const room = getCurrentRoom();
+      const params = ensureRoomParams(room);
+      params.others.push({ label, value: 'always' });
+      newParamLabelInput.value = '';
+      refreshParamsUI();
+      setStatus("");
+    });
+
+    extraParamsListDiv?.addEventListener('change', (e) => {
+      const target = e.target;
+      if (!target || target.tagName.toLowerCase() !== 'select') return;
+      const idx = parseInt(target.dataset.index, 10);
+      if (isNaN(idx)) return;
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      const params = ensureRoomParams(room);
+      if (!params.others[idx]) return;
+      params.others[idx].value = target.value === 'oui' ? 'oui' : 'non';
+    });
+
+    extraParamsListDiv?.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!target || !target.classList.contains('param-extra-remove')) return;
+      const idx = parseInt(target.dataset.index, 10);
+      if (isNaN(idx)) return;
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+      const room = getCurrentRoom();
+      const params = ensureRoomParams(room);
+      if (!params.others[idx]) return;
+      const label = params.others[idx].label;
+      params.others.splice(idx, 1);
+      refreshParamsUI();
+      setStatus("");
+    });
+
+    function bindEventField(input, key) {
+      if (!input) return;
+      input.addEventListener('input', () => {
+        if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+        const room = getCurrentRoom();
+        const params = ensureRoomParams(room);
+        params.event[key] = input.value || '';
+      });
+    }
+
+    bindEventField(eventTitleInput,  'title');
+    bindEventField(eventDateInput,   'date');
+    bindEventField(eventStartInput,  'start');
+    bindEventField(eventEndInput,    'end');
+    bindEventField(eventBufferInput, 'buffer');
+    bindEventField(eventReadyInput,  'ready');
+
+    if (eventRemarksTextarea) {
+      eventRemarksTextarea.addEventListener('input', () => {
+        if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+        const room = getCurrentRoom();
+        const params = ensureRoomParams(room);
+        params.remarks = eventRemarksTextarea.value || '';
+      });
+    }
+
+    // =========================
+    //  NAVIGATION ENTRE PAGES
+    // =========================
+
+    function switchRoom(roomIndex) {
+      currentRoomIndex = roomIndex;
+      const room       = getCurrentRoom();
+
+      if (roomWidthControls) {
+        roomWidthControls.style.display = (currentRoomIndex >= 12 && currentRoomIndex <= 14) ? 'block' : 'none';
+      }
+
+      roomWidthMetersInput.value = room.roomWidthMeters;
+
+      // 1) Essayer l'image personnalisée (localStorage)
+      if (!room.imageLoaded) {
+        loadRoomImageFromStorage(roomIndex);
+      }
+
+      // 2) Si toujours rien et salle 1..12, charger 01.png ... 12.png
+      if (!room.imageLoaded && roomIndex < 12) {
+        loadDefaultRoomImage(roomIndex);
+      }
+
+      // 3) Charger aussi les images par défaut ajoutées pour les salles 16 et 17
+      if (!room.imageLoaded && roomIndex === 15) {
+        loadNamedRoomImage(roomIndex, "resto.png");
+      }
+      if (!room.imageLoaded && roomIndex === 16) {
+        loadNamedRoomImage(roomIndex, "parking.png");
+      }
+
+      if (room.backgroundImage && room.imageLoaded) {
+        canvas.width  = room.backgroundImage.width;
+        canvas.height = room.backgroundImage.height;
+      } else {
+        canvas.width  = 800;
+        canvas.height = 600;
+      }
+
+      const scale = canvas.width / room.roomWidthMeters;
+      scaleX = scale;
+      scaleY = scale;
+
+      zoomRange.value = String(Math.round((room.zoom || 1) * 100));
+      applyZoomToCanvas();
+      refreshSelectionUI();
+      if (editorPanelMode === 'params') {
+        refreshParamsUI();
+      }
+      draw();
+    }
+
+    function switchPage(pageIndex) {
+      currentPageIndex = pageIndex;
+
+      if (pageIndex === 0) {
+        showHomeUI();
+        placingTemplate          = false;
+        currentPlacementTemplate = null;
+        templatePlacementAngleDeg= 0;
+        movingGroupActive        = false;
+        activeGroupId            = null;
+
+        canvas.width  = 2000;
+        canvas.height = 3200;
+
+        scaleX = canvas.width / DEFAULT_WIDTH_M;
+        scaleY = scaleX;
+        applyZoomToCanvas();
+        draw();
+        return;
+      }
+
+      if (pageIndex === MANUAL_PAGE_INDEX) {
+        showManualUI();
+        placingTemplate          = false;
+        currentPlacementTemplate = null;
+        templatePlacementAngleDeg= 0;
+        movingGroupActive        = false;
+        activeGroupId            = null;
+
+        canvas.width  = 800;
+        canvas.height = 600;
+        scaleX = 1;
+        scaleY = 1;
+        applyZoomToCanvas();
+        draw();
+        return;
+      }
+
+      showEditorUI();
+      const roomIndex = pageIndex - 1;
+      switchRoom(roomIndex);
+      updateModeUI();
+      updateEditorPanelModeUI();
+    }
+
+    prevRoomBtn.addEventListener('click', () => {
+      const newPage = (currentPageIndex - 1 + TOTAL_PAGES) % TOTAL_PAGES;
+      switchPage(newPage);
+    });
+
+    nextRoomBtn.addEventListener('click', () => {
+      const newPage = (currentPageIndex + 1) % TOTAL_PAGES;
+      switchPage(newPage);
+    });
+
+    zoomRange.addEventListener('input', () => {
+      if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) {
+        zoomRange.value = '100';
+        return;
+      }
+      const room = getCurrentRoom();
+      room.zoom  = parseInt(zoomRange.value, 10) / 100;
+      applyZoomToCanvas();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName || '').toLowerCase();
+      const isEditable =
+        tag === 'input' ||
+        tag === 'textarea' ||
+        e.target.isContentEditable;
+
+      if (isEditable) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (currentPageIndex === 0 || currentPageIndex === MANUAL_PAGE_INDEX) return;
+
+        e.preventDefault();
+
+        if (interactionMode === 'object') {
+          deleteSelectedObject();
+        } else if (interactionMode === 'dispo') {
+          deleteSelectedDisposition();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        const newPage = (currentPageIndex - 1 + TOTAL_PAGES) % TOTAL_PAGES;
+        switchPage(newPage);
+      } else if (e.key === 'ArrowRight') {
+        const newPage = (currentPageIndex + 1) % TOTAL_PAGES;
+        switchPage(newPage);
+      }
+    });
+
+    function buildTOC() {
+      if (!tocDiv) return;
+      for (let i = 1; i <= ROOM_COUNT; i++) {
+        const btn      = document.createElement('button');
+        const roomName = rooms[i - 1].name;
+        btn.textContent = 'Page ' + i + ' – ' + roomName;
+        btn.addEventListener('click', () => switchPage(i));
+        tocDiv.appendChild(btn);
+      }
+      const btnManual = document.createElement('button');
+      btnManual.textContent = 'Page ' + MANUAL_PAGE_INDEX + ' – Mode d\'emploi détaillé';
+      btnManual.addEventListener('click', () => switchPage(MANUAL_PAGE_INDEX));
+      tocDiv.appendChild(btnManual);
+    }
+
+    // =========================
+    //  INITIALISATION
+    // =========================
+
+    (function init() {
+      canvas.width  = 5000;
+      canvas.height = 3200;
+      const initScale = canvas.width / DEFAULT_WIDTH_M;
+      scaleX = initScale;
+      scaleY = initScale;
+
+      try {
+        const savedPreventOverlap = localStorage.getItem('preventOverlap');
+        preventOverlap = savedPreventOverlap === 'true';
+      } catch {
+        preventOverlap = false;
+      }
+      if (preventOverlapCheckbox) {
+        preventOverlapCheckbox.checked = preventOverlap;
+      }
+
+      loadTemplatesFromStorage();
+      buildTOC();
+      updateModeUI();
+      updateEditorPanelModeUI();
+      switchPage(0);
+    })();
+  
+</script>
+
+</body>
+</html>
