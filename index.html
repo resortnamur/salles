@@ -732,8 +732,8 @@ Vérifiez donc cette valeur avant de commencer l’aménagement.
       21,   // 6 Terrasse Yacht
       15,   // 7 Coffie Corner
       21,   // 8 Blue Ocean
-      25,   // 9 Blue Ocean & Couloir
-      21.5, // 10 Blue
+      24,   // 9 Blue Ocean & Couloir
+      20,   // 10 Blue
       10,   // 11 Ocean
       35,   // 12 Casino Club
       DEFAULT_WIDTH_M, // 13
@@ -2581,14 +2581,15 @@ room.selectedObjectIds = [];
           const room = rooms[roomIndex];
           room.backgroundImage = img;
           room.imageLoaded     = true;
-          try { localStorage.setItem(roomImageKey(roomIndex), dataURL); } catch {}
+          let imageStored = true;
+          try { localStorage.setItem(roomImageKey(roomIndex), dataURL); } catch { imageStored = false; }
           if (roomIndex === currentRoomIndex && currentPageIndex !== 0 && currentPageIndex !== MANUAL_PAGE_INDEX) {
             canvas.width  = img.width;
             canvas.height = img.height;
             updateScale();
             draw();
           }
-          setStatus("");
+          setStatus(imageStored ? "" : "Image affichée mais non mémorisée : la mémoire du navigateur est saturée.");
         };
         img.src = dataURL;
       };
@@ -2772,9 +2773,9 @@ room.selectedObjectIds = [];
             return;
           }
 
-          saveTemplatesToStorage();
+          const storedImport = saveTemplatesToStorage();
           refreshTemplateSelect();
-          setStatus("");
+          if (storedImport) setStatus("");
         } catch (err) {
           setStatus("Erreur lors de la lecture du fichier de dispositions.");
         }
@@ -3136,9 +3137,16 @@ function formatDateTimeFR(isoDateTime) {
       refreshTemplateSelect();
     }
 
+    const STORAGE_FULL_MSG = "Enregistrement impossible : la mémoire du navigateur est saturée. Exportez vos dispositions (page 0), puis supprimez des images de salles importées pour libérer de la place.";
+
     function saveTemplatesToStorage() {
-      try { localStorage.setItem('roomTemplates', JSON.stringify(templates)); }
-      catch {}
+      try {
+        localStorage.setItem('roomTemplates', JSON.stringify(templates));
+        return true;
+      } catch {
+        setStatus(STORAGE_FULL_MSG);
+        return false;
+      }
     }
 
 
@@ -3171,9 +3179,9 @@ function formatDateTimeFR(isoDateTime) {
       } else {
         templates.push({ name, objects: clonedObjects, lastAngleDeg: 0 });
       }
-      saveTemplatesToStorage();
+      const stored = saveTemplatesToStorage();
       refreshTemplateSelect();
-      setStatus("");
+      if (stored) setStatus("");
     });
 
 
@@ -3223,9 +3231,9 @@ function formatDateTimeFR(isoDateTime) {
         currentPlacementTemplate = null;
         templatePlacementAngleDeg= 0;
       }
-      saveTemplatesToStorage();
+      const storedAfterDelete = saveTemplatesToStorage();
       refreshTemplateSelect();
-      setStatus("");
+      if (storedAfterDelete) setStatus("");
     });
 
     templateSelect?.addEventListener('change', () => {
